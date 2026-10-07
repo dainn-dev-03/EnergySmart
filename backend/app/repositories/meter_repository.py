@@ -3,6 +3,7 @@ from collections.abc import Collection, Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
+from app.core.enums import MeterStatus
 from app.models import Floor, Meter, Room
 from app.repositories.base import BaseRepository
 from app.repositories.scopes import meter_scope
@@ -42,6 +43,9 @@ class MeterRepository(BaseRepository[Meter]):
             select(Meter).where(Meter.meter_code.in_(meter_codes)).order_by(Meter.meter_code)
         )
         return self.db.scalars(statement).all()
+
+    def count_by_status(self, status: MeterStatus, building_id: int | None = None) -> int:
+        return self._count(Meter.status == status, *meter_scope(building_id=building_id))
 
     def count_by_room(self, room_id: int) -> int:
         return self._count(Meter.room_id == room_id)

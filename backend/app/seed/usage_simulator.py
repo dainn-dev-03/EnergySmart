@@ -132,7 +132,9 @@ class DemoScenario:
     )
     # Floor-wide increase during the last `floor_event_days` days.
     floor_event_number: int = 3
-    floor_event_factor: float = 1.25
+    # 1.32 rather than 1.25: the autumn seasonal decline eats ~5%, the dashboard should still
+    # show roughly +25% week over week (above the 20% warning threshold).
+    floor_event_factor: float = 1.32
     floor_event_days: int = 7
     inactive_since_days: int = 30
     maintenance_since_days: int = 2

@@ -133,6 +133,19 @@ Prefix `/api/v1`. Mọi endpoint trừ `/auth/login` và `/health` cần `Author
 | `/electricity-usages` | `meter_id`, `room_id`, `floor_id`, `building_id`, `from_date`, `to_date` (ngày giờ Việt Nam, bao gồm cả hai đầu) | **recorded_at desc**, kwh, cost |
 | `/electricity-prices` | `active_on`, `search` | **effective_from desc**, price_per_kwh, name |
 
+### Dashboard & Analytics
+
+Dashboard và Analytics dùng chung `AnalyticsRepository`: mọi phép gom nhóm chạy bằng SQL, theo giờ Việt Nam, và không bao giờ tính quá thời điểm hiện tại.
+
+| Endpoint | Ý nghĩa |
+|---|---|
+| `/dashboard/summary` | Tổng kWh hôm nay; tổng kWh và chi phí từ đầu tháng; số công tơ ACTIVE; số cảnh báo chưa xử lý |
+| `/dashboard/daily?days=30`, `/dashboard/monthly?months=12`, `/dashboard/cost?months=6` | Chuỗi số liệu, ngày/tháng trống được điền 0 |
+| `/dashboard/by-floor` | 7 ngày gần nhất so với 7 ngày trước đó; tăng ≥ 20% thì `status = WARNING` |
+| `/dashboard/by-room?limit=10` | Các phòng tiêu thụ nhiều nhất từ đầu tháng, kèm tỷ trọng % |
+| `/analytics/daily`, `/monthly`, `/hourly`, `/by-floor`, `/by-room` | Lọc theo `from_date`/`to_date` (mặc định 30 ngày; riêng `/monthly` là 12 tháng) và theo cây phân cấp. `/hourly` trả kWh trung bình mỗi ngày tại từng giờ, tách ngày thường và cuối tuần |
+| `/analytics/comparison` | `period=day\|week\|month` (tuần bắt đầu từ thứ Hai) hoặc `current_from`/`current_to`. Kỳ trước được lấy với **cùng khoảng thời gian đã trôi qua** |
+
 ## 4. Logic nghiệp vụ
 
 **Comparison**: `percentage_change = (current − previous) / previous × 100`. Kỳ trước có cùng độ dài với kỳ hiện tại; nếu `previous = 0` thì trả `null`.

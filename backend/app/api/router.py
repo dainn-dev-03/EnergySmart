@@ -3,8 +3,10 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    analytics,
     auth,
     buildings,
+    dashboard,
     electricity_prices,
     electricity_usages,
     floors,
@@ -21,5 +23,7 @@ for module in (
     meters,
     electricity_usages,
     electricity_prices,
+    dashboard,
+    analytics,
 ):
     api_router.include_router(module.router)

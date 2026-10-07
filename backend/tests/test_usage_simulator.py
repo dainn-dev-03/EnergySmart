@@ -86,7 +86,7 @@ def test_forced_anomaly_and_floor_event() -> None:
     )
 
     assert abs(anomaly_ratio - 2.3) < 0.01
-    assert abs(floor_ratio - 1.25) < 0.01
+    assert abs(floor_ratio - DemoScenario(today=TODAY).floor_event_factor) < 0.01
 
 
 def test_inactive_and_maintenance_meters_stop_reporting() -> None:
