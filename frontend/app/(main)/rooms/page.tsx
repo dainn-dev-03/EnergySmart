@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
 
-import { ComingSoon } from "@/components/layout/coming-soon"
+import { RoomsView } from "@/components/views/rooms-view"
 
 export const metadata: Metadata = { title: "Phòng" }
 
 export default function Page() {
-  return <ComingSoon title="Phòng" description="Quản lý phòng trong từng tầng" />
+  return <RoomsView />
 }

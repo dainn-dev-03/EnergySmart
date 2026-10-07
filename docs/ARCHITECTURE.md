@@ -183,15 +183,15 @@ Một số chi tiết triển khai:
 
 ## 5. Lộ trình
 
-| Phase | Nội dung | Tuần |
+| Phase | Nội dung | Trạng thái |
 |---|---|---|
-| P1 | Kiến trúc | T1 |
-| P2 | Backend base, models, Alembic migration | T1 |
-| P3 | Authentication (JWT, phân quyền) | T1 |
-| P4 | CRUD API | T2 |
-| P5 | Seed dữ liệu giả lập | T2 |
-| P6 | Dashboard + Analytics API | T3 |
-| P7 | Alerts + Reports API | T3 |
-| P8 | Frontend base (layout, login, API client) | T4 |
-| P9 | Các trang frontend, kết nối API thật | T4 |
-| P10 | README hoàn chỉnh, kiểm tra toàn bộ | T5 |
+| P1 | Kiến trúc | ✅ |
+| P2 | Backend base, models, Alembic migration | ✅ |
+| P3 | Authentication (JWT, phân quyền) | ✅ |
+| P4 | CRUD API | ✅ |
+| P5 | Seed dữ liệu giả lập | ✅ |
+| P6 | Dashboard + Analytics API | ✅ |
+| P7 | Alerts + Reports API | ✅ |
+| P8 | Frontend base (layout, login, API client) | ✅ |
+| P9 | Các trang frontend, kết nối API thật | ✅ |
+| P10 | README hoàn chỉnh, kiểm tra toàn bộ từ bản clone sạch | ✅ |

@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
 
-import { ComingSoon } from "@/components/layout/coming-soon"
+import { DashboardView } from "@/components/views/dashboard-view"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
-export default function Page() {
-  return <ComingSoon title="Dashboard" description="Tình hình tiêu thụ điện của tòa nhà" />
+export default function DashboardPage() {
+  return <DashboardView />
 }

@@ -60,3 +60,11 @@ export function formatDateTime(isoDateTime: string): string {
   )
   return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`
 }
+
+/** UTC timestamp -> { date: "2026-10-07", hour: 14 } in Vietnam time (for edit forms). */
+export function toVietnamDateHour(isoDateTime: string): { date: string; hour: number } {
+  const parts = Object.fromEntries(
+    dateTimeParts.formatToParts(new Date(isoDateTime)).map((part) => [part.type, part.value]),
+  )
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) }
+}

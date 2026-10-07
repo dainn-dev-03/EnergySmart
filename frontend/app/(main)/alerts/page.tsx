@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
 
-import { ComingSoon } from "@/components/layout/coming-soon"
+import { AlertsView } from "@/components/views/alerts-view"
 
 export const metadata: Metadata = { title: "Cảnh báo" }
 
 export default function Page() {
-  return <ComingSoon title="Cảnh báo" description="Các trường hợp tiêu thụ bất thường" />
+  return <AlertsView />
 }
