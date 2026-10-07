@@ -1,3 +1,6 @@
+from collections.abc import Collection, Sequence
+
+from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from app.models import Floor, Meter, Room
@@ -33,6 +36,12 @@ class MeterRepository(BaseRepository[Meter]):
 
     def code_exists(self, meter_code: str, exclude_id: int | None = None) -> bool:
         return self._exists(Meter.meter_code == meter_code, exclude_id=exclude_id)
+
+    def list_by_codes(self, meter_codes: Collection[str]) -> Sequence[Meter]:
+        statement = (
+            select(Meter).where(Meter.meter_code.in_(meter_codes)).order_by(Meter.meter_code)
+        )
+        return self.db.scalars(statement).all()
 
     def count_by_room(self, room_id: int) -> int:
         return self._count(Meter.room_id == room_id)

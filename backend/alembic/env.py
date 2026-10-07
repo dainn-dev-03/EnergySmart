@@ -8,6 +8,7 @@ from alembic.autogenerate.api import AutogenContext
 from sqlalchemy import CheckConstraint, create_engine, pool
 
 from app.core.config import settings
+from app.core.database import CONNECT_ARGS
 from app.models import Base
 
 config = context.config
@@ -46,7 +47,9 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connectable = create_engine(settings.database_uri, poolclass=pool.NullPool)
+    connectable = create_engine(
+        settings.database_uri, poolclass=pool.NullPool, connect_args=CONNECT_ARGS
+    )
     with connectable.connect() as connection:
         context.configure(
             connection=connection,

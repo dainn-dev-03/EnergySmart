@@ -80,7 +80,7 @@ def test_create_usage_validation(
     next_hour = (datetime.now(UTC) + timedelta(hours=2)).replace(minute=0, second=0, microsecond=0)
 
     def first_error(**overrides: Any) -> dict[str, Any]:
-        response = client.post(URL, json=_payload(meter.id, **overrides), headers=admin_headers)
+        response = client.post(URL, json={**_payload(meter.id), **overrides}, headers=admin_headers)
         assert response.status_code == 422
         detail: dict[str, Any] = response.json()["error"]["details"][0]
         return detail

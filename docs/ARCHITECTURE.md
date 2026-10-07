@@ -48,7 +48,7 @@ Router không chứa business logic. Service ném `AppError` (`NotFoundError`, `
 | Driver | psycopg 3 (`postgresql+psycopg://`) | |
 | JWT / hash | PyJWT (HS256) + `pwdlib[argon2]` | passlib không còn được bảo trì |
 | Enum | `VARCHAR` + `CHECK` (không dùng native PG enum) | Thêm giá trị không cần `ALTER TYPE` |
-| Thời gian | `TIMESTAMPTZ` (UTC), gom nhóm theo `APP_TIMEZONE=Asia/Ho_Chi_Minh` | "Hôm nay", "tháng này" tính theo giờ Việt Nam |
+| Thời gian | `TIMESTAMPTZ`; mọi kết nối DB chạy ở UTC (`-c timezone=UTC`) nên API luôn trả thời gian UTC (`...Z`); gom nhóm và lọc ngày theo `APP_TIMEZONE=Asia/Ho_Chi_Minh` | Kết quả không phụ thuộc cấu hình TimeZone của PostgreSQL server; "hôm nay", "tháng này" tính theo giờ Việt Nam |
 | Test | pytest + TestClient trên DB PostgreSQL riêng (`POSTGRES_TEST_DB`) | Query dùng hàm thời gian đặc thù của PostgreSQL |
 | Swagger auth | `HTTPBearer` | Login → copy token → Authorize |
 | FE auth | JWT trong cookie `es_token` (SameSite=Lax, 8h) + header Bearer | Middleware đọc cookie để chặn route; 401 → về `/login` |
@@ -110,7 +110,28 @@ Prefix `/api/v1`. Mọi endpoint trừ `/auth/login` và `/health` cần `Author
 | Alerts | `GET /alerts`, `POST /alerts/{id}/resolve`, `POST /alerts/detect` |
 | Reports | `GET /reports/consumption`, `GET /reports/consumption/export` (CSV) |
 
-Filter theo cây phân cấp cho usage/analytics: `meter_id`, `room_id`, `floor_id`, `building_id`, `from_date`, `to_date`.
+**Quy ước CRUD**
+- PUT là cập nhật toàn bộ, gửi đủ các trường giống POST. POST trả về 201; DELETE trả về 200 kèm `data: null`.
+- `sort_by` chỉ nhận các giá trị được liệt kê trên Swagger. `search` không phân biệt hoa thường, và các ký tự `%` `_` được hiểu theo nghĩa đen.
+- Mã (`code`, `meter_code`) được tự động bỏ khoảng trắng và chuyển sang chữ in hoa.
+- Số thập phân (`kwh`, `cost`, `area`, `price_per_kwh`, …) được trả về dạng số JSON.
+- Response có kèm thông tin tham chiếu lồng nhau, ví dụ `meter.room.floor.building`, để frontend hiển thị tên mà không cần gọi thêm API.
+- Lỗi theo từng field:
+  - `422 VALIDATION_ERROR` khi id cấp cha không tồn tại, ví dụ `{"field": "building_id", "message": "Tòa nhà không tồn tại"}`.
+  - `409 CONFLICT` khi trùng dữ liệu, ví dụ `{"field": "code", ...}`.
+- Electricity usage:
+  - `recorded_at` phải là đầu giờ và không được ở tương lai; nếu không ghi múi giờ thì hiểu là giờ Việt Nam.
+  - `cost` không nhận từ client mà được tính bằng `kwh × đơn giá có hiệu lực`; không có bảng giá thì trả `422 PRICE_NOT_FOUND`.
+- Bảng giá điện: các khoảng hiệu lực không được chồng lên nhau (trùng thì trả 409); chỉ ADMIN được ghi.
+
+| Endpoint list | Filter | `sort_by` (mặc định) |
+|---|---|---|
+| `/buildings` | `search` (name, code, address) | **code**, name, created_at |
+| `/floors` | `building_id`, `search` | **floor_number**, name, created_at |
+| `/rooms` | `floor_id`, `building_id`, `search` | **code**, name, area, created_at |
+| `/meters` | `room_id`, `floor_id`, `building_id`, `status`, `meter_type`, `search` | **meter_code**, name, status, installation_date, created_at |
+| `/electricity-usages` | `meter_id`, `room_id`, `floor_id`, `building_id`, `from_date`, `to_date` (ngày giờ Việt Nam, bao gồm cả hai đầu) | **recorded_at desc**, kwh, cost |
+| `/electricity-prices` | `active_on`, `search` | **effective_from desc**, price_per_kwh, name |
 
 ## 4. Logic nghiệp vụ
 

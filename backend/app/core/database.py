@@ -23,9 +23,12 @@ class Base(DeclarativeBase):
     type_annotation_map: ClassVar[dict[Any, Any]] = {datetime: DateTime(timezone=True)}
 
 
-engine = create_engine(
-    settings.database_uri,
-    pool_pre_ping=True,
-    connect_args={"connect_timeout": settings.database_connect_timeout_seconds},
-)
+# Every connection runs in UTC so returned timestamps never depend on the server TimeZone
+# setting; conversion to local business time is done explicitly (app.core.timezone).
+CONNECT_ARGS: dict[str, Any] = {
+    "connect_timeout": settings.database_connect_timeout_seconds,
+    "options": "-c timezone=UTC",
+}
+
+engine = create_engine(settings.database_uri, pool_pre_ping=True, connect_args=CONNECT_ARGS)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

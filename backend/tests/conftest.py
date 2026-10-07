@@ -9,13 +9,12 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.database import CONNECT_ARGS
 from app.core.dependencies import get_db
 from app.core.enums import UserRole
 from app.main import app
 from app.models import Base
 from tests.factories import auth_headers, create_user
-
-CONNECT_ARGS = {"connect_timeout": settings.database_connect_timeout_seconds}
 
 
 def _can_connect(url: URL) -> bool:

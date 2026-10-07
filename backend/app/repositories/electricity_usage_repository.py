@@ -1,5 +1,8 @@
+from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime
+from typing import Any
 
+from sqlalchemy import func, insert, select
 from sqlalchemy.orm import joinedload
 
 from app.core.timezone import local_day_end_exclusive, local_day_start
@@ -37,6 +40,20 @@ class ElectricityUsageRepository(BaseRepository[ElectricityUsage]):
         if params.to_date is not None:
             filters.append(ElectricityUsage.recorded_at < local_day_end_exclusive(params.to_date))
         return self._list(params, filters)
+
+    def latest_recorded_at_by_meter(self, meter_ids: Collection[int]) -> dict[int, datetime]:
+        statement = (
+            select(ElectricityUsage.meter_id, func.max(ElectricityUsage.recorded_at))
+            .where(ElectricityUsage.meter_id.in_(meter_ids))
+            .group_by(ElectricityUsage.meter_id)
+        )
+        return {meter_id: latest for meter_id, latest in self.db.execute(statement)}
+
+    def bulk_insert(self, rows: Sequence[Mapping[str, Any]], batch_size: int = 10_000) -> int:
+        """Insert many readings without loading ORM objects (multi-row INSERTs)."""
+        for start in range(0, len(rows), batch_size):
+            self.db.execute(insert(ElectricityUsage), rows[start : start + batch_size])
+        return len(rows)
 
     def reading_exists(
         self, meter_id: int, recorded_at: datetime, exclude_id: int | None = None

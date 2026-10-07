@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import date
 
 from sqlalchemy import ColumnElement, or_, select
@@ -26,6 +27,10 @@ class ElectricityPriceRepository(BaseRepository[ElectricityPrice]):
     def list(self, params: ElectricityPriceListParams) -> Page[ElectricityPrice]:
         filters = [_active_on(params.active_on)] if params.active_on is not None else []
         return self._list(params, filters)
+
+    def list_all(self) -> Sequence[ElectricityPrice]:
+        statement = select(ElectricityPrice).order_by(ElectricityPrice.effective_from)
+        return self.db.scalars(statement).all()
 
     def find_active_on(self, day: date) -> ElectricityPrice | None:
         statement = (
