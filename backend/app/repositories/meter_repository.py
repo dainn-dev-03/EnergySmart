@@ -44,6 +44,18 @@ class MeterRepository(BaseRepository[Meter]):
         )
         return self.db.scalars(statement).all()
 
+    def list_by_status(
+        self, status: MeterStatus, building_id: int | None = None
+    ) -> Sequence[Meter]:
+        """Meters with room/floor/building loaded (used to build readable messages)."""
+        statement = (
+            select(Meter)
+            .options(*self.load_options)
+            .where(Meter.status == status, *meter_scope(building_id=building_id))
+            .order_by(Meter.meter_code)
+        )
+        return self.db.scalars(statement).all()
+
     def count_by_status(self, status: MeterStatus, building_id: int | None = None) -> int:
         return self._count(Meter.status == status, *meter_scope(building_id=building_id))
 

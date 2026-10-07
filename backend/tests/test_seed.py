@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import SecretStr
@@ -6,10 +6,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import Base
-from app.core.enums import UserRole
+from app.core.enums import AlertSeverity, UserRole
 from app.core.security import verify_password
 from app.core.timezone import APP_TIMEZONE
-from app.models import Building, ElectricityPrice, ElectricityUsage, Floor, Meter, Room, User
+from app.models import Alert, Building, ElectricityPrice, ElectricityUsage, Floor, Meter, Room, User
 from app.repositories.user_repository import UserRepository
 from app.seed.demo_data import reset_demo_data, seed_demo_data
 from app.seed.master_data import CURRENT_PRICE
@@ -101,3 +101,14 @@ def test_reset_removes_demo_data_but_keeps_users(db_session: Session) -> None:
     assert _count(db_session, Building) == 0
     assert _count(db_session, ElectricityUsage) == 0
     assert _count(db_session, User) == 3
+
+
+def test_seed_detects_demo_anomalies_and_keeps_only_recent_alerts_open(db_session: Session) -> None:
+    report = seed_demo_data(db_session, days=21, random_seed=42, now=NOW)
+
+    alerts = db_session.scalars(select(Alert).join(Alert.meter)).all()
+    m003 = [a for a in alerts if a.meter.meter_code == "M003" and a.usage_date == date(2025, 6, 3)]
+    assert report.created_alerts == len(alerts) > 0
+    assert [a.severity for a in m003] == [AlertSeverity.CRITICAL]
+    assert all(a.is_resolved == (a.usage_date < date(2025, 6, 1)) for a in alerts)
+    assert report.open_alerts == sum(not a.is_resolved for a in alerts)

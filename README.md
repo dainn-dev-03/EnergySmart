@@ -40,6 +40,7 @@ Tài khoản demo (lấy từ biến `SEED_*` trong `.env`):
   - Có giờ cao điểm (9–11h, 14–15h), cuối tuần thấp hơn và ảnh hưởng theo mùa.
   - Khoảng 3% số ngày có bất thường.
   - Cố định cho demo: M003 hôm qua tăng gấp 2,3 lần; tầng 3 tăng khoảng 25% trong 7 ngày gần nhất; 2 công tơ INACTIVE, 2 công tơ MAINTENANCE.
+- **Cảnh báo:** seed tự chạy phát hiện tiêu thụ bất thường cho toàn bộ dữ liệu. Chỉ cảnh báo của 3 ngày gần nhất còn mở; các cảnh báo cũ hơn được đánh dấu đã xử lý.
 - Dữ liệu tái lập được nhờ `SEED_RANDOM_SEED`.
 
 Dùng Swagger: gọi `POST /api/v1/auth/login`, copy `data.access_token`, bấm **Authorize** rồi dán token vào.

@@ -55,10 +55,12 @@ def main(argv: Sequence[str] | None = None) -> None:
         else "Topped up existing demo data"
     )
     logger.info(
-        "%s: %d meters, %d hourly readings inserted, data up to %s (%.1fs)",
+        "%s: %d meters, %d hourly readings, %d new alerts (%d open), data up to %s (%.1fs)",
         action,
         report.meter_count,
         report.inserted_readings,
+        report.created_alerts,
+        report.open_alerts,
         report.last_reading_at.strftime("%Y-%m-%d %H:%M"),
         time.perf_counter() - started,
     )

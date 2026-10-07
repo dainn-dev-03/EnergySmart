@@ -71,6 +71,24 @@ class FloorTotals:
 
 
 @dataclass(frozen=True)
+class MeterDayTotal:
+    meter_id: int
+    day: date
+    kwh: Decimal
+
+
+@dataclass(frozen=True)
+class MeterTotals:
+    meter_id: int
+    meter_code: str
+    meter_name: str
+    room_name: str
+    floor_name: str
+    kwh: Decimal
+    cost: Decimal
+
+
+@dataclass(frozen=True)
 class RoomTotals:
     room_id: int
     room_code: str
@@ -140,6 +158,34 @@ class AnalyticsRepository:
             .limit(limit)
         )
         return [RoomTotals(*row) for row in self.db.execute(statement)]
+
+    def daily_totals_by_meter(
+        self, start: datetime, end: datetime, meter_ids: Sequence[int]
+    ) -> list[MeterDayTotal]:
+        local_day = cast(_LOCAL_TIME, Date)
+        statement = (
+            select(ElectricityUsage.meter_id, local_day, _KWH)
+            .where(
+                ElectricityUsage.recorded_at >= start,
+                ElectricityUsage.recorded_at < end,
+                ElectricityUsage.meter_id.in_(meter_ids),
+            )
+            .group_by(ElectricityUsage.meter_id, local_day)
+        )
+        return [MeterDayTotal(*row) for row in self.db.execute(statement)]
+
+    def by_meter(self, start: datetime, end: datetime, scope: UsageScope) -> list[MeterTotals]:
+        statement = (
+            select(Meter.id, Meter.meter_code, Meter.name, Room.name, Floor.name, _KWH, _COST)
+            .select_from(ElectricityUsage)
+            .join(Meter, Meter.id == ElectricityUsage.meter_id)
+            .join(Room, Room.id == Meter.room_id)
+            .join(Floor, Floor.id == Room.floor_id)
+            .where(*self._filters(start, end, scope))
+            .group_by(Meter.id, Room.name, Floor.name)
+            .order_by(_KWH.desc(), Meter.meter_code)
+        )
+        return [MeterTotals(*row) for row in self.db.execute(statement)]
 
     @staticmethod
     def _filters(start: datetime, end: datetime, scope: UsageScope) -> Sequence[Any]:

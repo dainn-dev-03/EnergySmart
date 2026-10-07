@@ -159,6 +159,26 @@ ratio    = actual / baseline          (bỏ qua nếu có ít hơn 3 ngày tham 
 ratio ≥ 2.0 → CRITICAL · ≥ 1.5 → WARNING · ≥ 1.2 → INFO
 ```
 
+Một số chi tiết triển khai:
+- Ngưỡng nằm trong config (`ALERT_RATIO_*`, `ALERT_BASELINE_DAYS`, `ALERT_MIN_REFERENCE_DAYS`).
+- Chỉ đánh giá những ngày đã kết thúc. Mỗi lần phát hiện chỉ cần 1 truy vấn SQL cho cả khoảng ngày.
+- Insert dùng `ON CONFLICT DO NOTHING` trên `(meter_id, alert_type, usage_date)`, nên chạy lại không tạo trùng.
+- `created_at` của cảnh báo là thời điểm ngày đó kết thúc.
+- `threshold_value` = ngưỡng tham chiếu × 1,2; `actual_value` = kWh thực tế của ngày.
+
+**API**
+- `POST /alerts/detect?date=` (ADMIN/MANAGER): phát hiện cho một ngày, mặc định là hôm qua.
+- `POST /alerts/{id}/resolve` (ADMIN/MANAGER): đánh dấu đã xử lý; nếu cảnh báo đã được xử lý trước đó thì trả 409.
+- `GET /alerts`: lọc theo `is_resolved`, `severity`, cây phân cấp và khoảng `usage_date`.
+
+**Seed**
+- Lệnh seed tự chạy phát hiện cho toàn bộ dữ liệu vừa sinh.
+- Lần seed đầu: cảnh báo cũ hơn 3 ngày được đánh dấu đã xử lý (khoảng 296 cảnh báo, chỉ khoảng 9 cái còn mở).
+
+**Reports**
+- `GET /reports/consumption?group_by=floor|room|meter`: mặc định tính từ đầu tháng tới hôm nay.
+- `GET /reports/consumption/export`: trả cùng dữ liệu dạng CSV UTF-8 có BOM (Excel hiển thị đúng tiếng Việt), kèm dòng "Tổng cộng". Tên file có dạng `bao-cao-dien-nang_<nhóm>_<từ>-<đến>.csv`.
+
 **Dữ liệu giả lập**: 1 tòa nhà, 10 tầng, 50 phòng, 50 công tơ, dữ liệu theo giờ trong 90 ngày (~108.000 dòng). Có giờ cao điểm, cuối tuần thấp hơn, một số ngày bất thường. Random seed cố định để tái lập được; `--top-up` bổ sung dữ liệu đến thời điểm hiện tại.
 
 ## 5. Lộ trình

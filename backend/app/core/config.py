@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     app_timezone: str = "Asia/Ho_Chi_Minh"
 
+    # Abnormal consumption detection: daily kWh / average of the same day type (weekday or
+    # weekend) over the previous `alert_baseline_days` days.
+    alert_baseline_days: int = 14
+    alert_min_reference_days: int = 3
+    alert_ratio_info: float = 1.2
+    alert_ratio_warning: float = 1.5
+    alert_ratio_critical: float = 2.0
+
     @field_validator("jwt_secret_key")
     @classmethod
     def _jwt_secret_long_enough(cls, value: SecretStr) -> SecretStr:

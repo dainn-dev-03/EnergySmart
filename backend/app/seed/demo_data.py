@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.exceptions import BusinessRuleError
 from app.core.timezone import APP_TIMEZONE, local_day_start
 from app.models import Alert, Building, ElectricityPrice, ElectricityUsage, Floor, Meter, Room
+from app.repositories.alert_repository import AlertRepository
 from app.repositories.building_repository import BuildingRepository
 from app.repositories.electricity_price_repository import ElectricityPriceRepository
 from app.repositories.electricity_usage_repository import ElectricityUsageRepository
@@ -25,9 +26,14 @@ from app.seed.master_data import (
     seeded_meter_loads,
 )
 from app.seed.usage_simulator import DemoScenario, UsageSimulator
+from app.services.alert_service import AlertService
 
 # Children first; users are never touched by a reset.
 _DEMO_TABLES = (Alert, ElectricityUsage, Meter, Room, Floor, Building, ElectricityPrice)
+
+
+# On a fresh seed, alerts older than this are marked resolved so only recent ones stay open.
+OPEN_ALERT_DAYS = 3
 
 
 @dataclass(frozen=True)
@@ -36,6 +42,8 @@ class SeedReport:
     meter_count: int
     inserted_readings: int
     last_reading_at: datetime
+    created_alerts: int
+    open_alerts: int
 
 
 class PriceBook:
@@ -100,9 +108,29 @@ def seed_demo_data(
         rows.extend(simulator.rows(meter_id, load, start, end, price_book.price_on))
     inserted = usages.bulk_insert(rows)
 
+    # Detect alerts on every complete day that just received data.
+    detect_from = (
+        history_start.date()
+        if created
+        else min(
+            (latest_at.astimezone(APP_TIMEZONE).date() for latest_at in latest.values()),
+            default=today,
+        )
+    )
+    yesterday = today - timedelta(days=1)
+    alerts = AlertRepository(db)
+    created_alerts = 0
+    if detect_from <= yesterday:
+        detection = AlertService(db, now=lambda: end).detect_range(detect_from, yesterday)
+        created_alerts = detection.created_alerts
+    if created:
+        alerts.resolve_before(today - timedelta(days=OPEN_ALERT_DAYS))
+
     return SeedReport(
         created_master_data=created,
         meter_count=len(loads),
         inserted_readings=inserted,
         last_reading_at=end,
+        created_alerts=created_alerts,
+        open_alerts=alerts.count_unresolved(),
     )
