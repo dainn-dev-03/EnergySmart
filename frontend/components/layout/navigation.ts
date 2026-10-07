@@ -1,6 +1,7 @@
 import {
   BellRing,
   ClipboardList,
+  Users,
   Building2,
   ChartLine,
   DoorOpen,
@@ -72,6 +73,12 @@ export const NAVIGATION: NavGroup[] = [
   {
     label: "Quản trị",
     items: [
+      {
+        title: "Người dùng",
+        href: "/users",
+        icon: Users,
+        description: "Quản lý tài khoản và phân quyền",
+      },
       {
         title: "Nhật ký hoạt động",
         href: "/audit-logs",

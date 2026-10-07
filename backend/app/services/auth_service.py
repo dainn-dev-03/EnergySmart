@@ -7,7 +7,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models import User
+from app.models import AuditLog, User
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import TokenRead
 from app.schemas.user import UserRead
@@ -35,6 +35,8 @@ class AuthService:
         if not user.is_active:
             raise ForbiddenError("Tài khoản đã bị vô hiệu hóa", code="ACCOUNT_DISABLED")
 
+        self.users.db.add(AuditLog(user_id=user.id, action="LOGIN", entity_type="users", entity_id=user.id, entity_label=user.username, changes=None))
+        self.users.db.commit()
         access_token = create_access_token(user.id, user.role)
         return TokenRead(
             access_token=access_token.token,
