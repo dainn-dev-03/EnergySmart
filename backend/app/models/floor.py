@@ -4,14 +4,14 @@ from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.base import TimestampMixin
+from app.models.base import ActorMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.building import Building
     from app.models.room import Room
 
 
-class Floor(TimestampMixin, Base):
+class Floor(ActorMixin, TimestampMixin, Base):
     __tablename__ = "floors"
     # Also serves as the index on building_id (leading column).
     __table_args__ = (UniqueConstraint("building_id", "floor_number"),)

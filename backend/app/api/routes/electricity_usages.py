@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.core.dependencies import DbSession, get_current_user, require_admin_or_manager
+from app.core.dependencies import CurrentUser, DbSession, get_current_user, require_admin_or_manager
 from app.schemas.common import ApiResponse, PaginatedResponse, paginated
 from app.schemas.electricity_usage import (
     ElectricityUsageCreate,
@@ -55,9 +55,9 @@ def get_usage(usage_id: int, service: ServiceDep) -> ApiResponse[ElectricityUsag
     summary="Ghi nhận điện năng tiêu thụ trong 1 giờ (cost tự tính theo bảng giá)",
 )
 def create_usage(
-    payload: ElectricityUsageCreate, service: ServiceDep
+    payload: ElectricityUsageCreate, service: ServiceDep, current_user: CurrentUser
 ) -> ApiResponse[ElectricityUsageRead]:
-    usage = service.create(payload)
+    usage = service.create(payload, current_user)
     return ApiResponse(
         message="Ghi nhận dữ liệu điện năng thành công",
         data=ElectricityUsageRead.model_validate(usage),
@@ -71,9 +71,9 @@ def create_usage(
     summary="Cập nhật bản ghi điện năng (cost được tính lại)",
 )
 def update_usage(
-    usage_id: int, payload: ElectricityUsageUpdate, service: ServiceDep
+    usage_id: int, payload: ElectricityUsageUpdate, service: ServiceDep, current_user: CurrentUser
 ) -> ApiResponse[ElectricityUsageRead]:
-    usage = service.update(usage_id, payload)
+    usage = service.update(usage_id, payload, current_user)
     return ApiResponse(
         message="Cập nhật dữ liệu điện năng thành công",
         data=ElectricityUsageRead.model_validate(usage),
@@ -86,6 +86,6 @@ def update_usage(
     dependencies=WRITE_ACCESS,
     summary="Xóa bản ghi điện năng",
 )
-def delete_usage(usage_id: int, service: ServiceDep) -> ApiResponse[None]:
-    service.delete(usage_id)
+def delete_usage(usage_id: int, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[None]:
+    service.delete(usage_id, current_user)
     return ApiResponse(message="Xóa dữ liệu điện năng thành công", data=None)

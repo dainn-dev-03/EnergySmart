@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.core.dependencies import DbSession, get_current_user, require_admin_or_manager
+from app.core.dependencies import CurrentUser, DbSession, get_current_user, require_admin_or_manager
 from app.schemas.building import BuildingCreate, BuildingListParams, BuildingRead, BuildingUpdate
 from app.schemas.common import ApiResponse, PaginatedResponse, paginated
 from app.services.building_service import BuildingService
@@ -39,8 +39,8 @@ def get_building(building_id: int, service: ServiceDep) -> ApiResponse[BuildingR
     dependencies=WRITE_ACCESS,
     summary="Tạo tòa nhà",
 )
-def create_building(payload: BuildingCreate, service: ServiceDep) -> ApiResponse[BuildingRead]:
-    building = service.create(payload)
+def create_building(payload: BuildingCreate, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[BuildingRead]:
+    building = service.create(payload, current_user)
     return ApiResponse(message="Tạo tòa nhà thành công", data=BuildingRead.model_validate(building))
 
 
@@ -51,9 +51,9 @@ def create_building(payload: BuildingCreate, service: ServiceDep) -> ApiResponse
     summary="Cập nhật tòa nhà",
 )
 def update_building(
-    building_id: int, payload: BuildingUpdate, service: ServiceDep
+    building_id: int, payload: BuildingUpdate, service: ServiceDep, current_user: CurrentUser
 ) -> ApiResponse[BuildingRead]:
-    building = service.update(building_id, payload)
+    building = service.update(building_id, payload, current_user)
     return ApiResponse(
         message="Cập nhật tòa nhà thành công", data=BuildingRead.model_validate(building)
     )
@@ -65,6 +65,6 @@ def update_building(
     dependencies=WRITE_ACCESS,
     summary="Xóa tòa nhà (chỉ khi không còn tầng)",
 )
-def delete_building(building_id: int, service: ServiceDep) -> ApiResponse[None]:
-    service.delete(building_id)
+def delete_building(building_id: int, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[None]:
+    service.delete(building_id, current_user)
     return ApiResponse(message="Xóa tòa nhà thành công", data=None)

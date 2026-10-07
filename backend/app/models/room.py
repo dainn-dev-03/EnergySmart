@@ -5,14 +5,14 @@ from sqlalchemy import CheckConstraint, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.base import TimestampMixin
+from app.models.base import ActorMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.floor import Floor
     from app.models.meter import Meter
 
 
-class Room(TimestampMixin, Base):
+class Room(ActorMixin, TimestampMixin, Base):
     __tablename__ = "rooms"
     __table_args__ = (CheckConstraint("area > 0", name="area_positive"),)
 

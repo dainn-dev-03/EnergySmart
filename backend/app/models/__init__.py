@@ -2,6 +2,7 @@
 
 from app.core.database import Base
 from app.models.alert import Alert
+from app.models.audit_log import AuditLog
 from app.models.building import Building
 from app.models.electricity_price import ElectricityPrice
 from app.models.electricity_usage import ElectricityUsage
@@ -12,6 +13,7 @@ from app.models.user import User
 
 __all__ = [
     "Alert",
+    "AuditLog",
     "Base",
     "Building",
     "ElectricityPrice",

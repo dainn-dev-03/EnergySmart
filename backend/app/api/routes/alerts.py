@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.core.dependencies import DbSession, get_current_user, require_admin_or_manager
+from app.core.dependencies import CurrentUser, DbSession, get_current_user, require_admin_or_manager
 from app.schemas.alert import AlertListParams, AlertRead, DetectionResult
 from app.schemas.common import ApiResponse, PaginatedResponse, paginated
 from app.services.alert_service import AlertService
@@ -37,8 +37,8 @@ def get_alert(alert_id: int, service: ServiceDep) -> ApiResponse[AlertRead]:
     dependencies=WRITE_ACCESS,
     summary="Đánh dấu cảnh báo đã xử lý",
 )
-def resolve_alert(alert_id: int, service: ServiceDep) -> ApiResponse[AlertRead]:
-    alert = service.resolve(alert_id)
+def resolve_alert(alert_id: int, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[AlertRead]:
+    alert = service.resolve(alert_id, current_user)
     return ApiResponse(message="Đã xử lý cảnh báo", data=AlertRead.model_validate(alert))
 
 

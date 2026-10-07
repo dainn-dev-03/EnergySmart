@@ -11,6 +11,7 @@ from app.models.base import str_enum
 
 if TYPE_CHECKING:
     from app.models.meter import Meter
+    from app.models.user import User
 
 
 class Alert(Base):
@@ -29,5 +30,7 @@ class Alert(Base):
     is_resolved: Mapped[bool] = mapped_column(default=False, server_default=false(), index=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
     resolved_at: Mapped[datetime | None]
+    resolved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
     meter: Mapped["Meter"] = relationship(back_populates="alerts")
+    resolved_by: Mapped["User | None"] = relationship(foreign_keys=[resolved_by_id])

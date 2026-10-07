@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.core.dependencies import DbSession, get_current_user, require_admin
+from app.core.dependencies import CurrentUser, DbSession, get_current_user, require_admin
 from app.schemas.common import ApiResponse, PaginatedResponse, paginated
 from app.schemas.electricity_price import (
     ElectricityPriceCreate,
@@ -51,9 +51,9 @@ def get_price(price_id: int, service: ServiceDep) -> ApiResponse[ElectricityPric
     summary="Tạo bảng giá (ADMIN)",
 )
 def create_price(
-    payload: ElectricityPriceCreate, service: ServiceDep
+    payload: ElectricityPriceCreate, service: ServiceDep, current_user: CurrentUser
 ) -> ApiResponse[ElectricityPriceRead]:
-    price = service.create(payload)
+    price = service.create(payload, current_user)
     return ApiResponse(
         message="Tạo bảng giá điện thành công", data=ElectricityPriceRead.model_validate(price)
     )
@@ -66,9 +66,9 @@ def create_price(
     summary="Cập nhật bảng giá (ADMIN)",
 )
 def update_price(
-    price_id: int, payload: ElectricityPriceUpdate, service: ServiceDep
+    price_id: int, payload: ElectricityPriceUpdate, service: ServiceDep, current_user: CurrentUser
 ) -> ApiResponse[ElectricityPriceRead]:
-    price = service.update(price_id, payload)
+    price = service.update(price_id, payload, current_user)
     return ApiResponse(
         message="Cập nhật bảng giá điện thành công",
         data=ElectricityPriceRead.model_validate(price),
@@ -81,6 +81,6 @@ def update_price(
     dependencies=WRITE_ACCESS,
     summary="Xóa bảng giá (ADMIN)",
 )
-def delete_price(price_id: int, service: ServiceDep) -> ApiResponse[None]:
-    service.delete(price_id)
+def delete_price(price_id: int, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[None]:
+    service.delete(price_id, current_user)
     return ApiResponse(message="Xóa bảng giá điện thành công", data=None)

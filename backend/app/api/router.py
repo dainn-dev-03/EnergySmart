@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     alerts,
+    audit_logs,
     analytics,
     auth,
     buildings,
@@ -29,5 +30,6 @@ for module in (
     analytics,
     alerts,
     reports,
+    audit_logs,
 ):
     api_router.include_router(module.router)

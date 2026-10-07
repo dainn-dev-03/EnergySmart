@@ -6,13 +6,13 @@ from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Numeric, UniqueC
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.base import CreatedAtMixin
+from app.models.base import ActorMixin, CreatedAtMixin
 
 if TYPE_CHECKING:
     from app.models.meter import Meter
 
 
-class ElectricityUsage(CreatedAtMixin, Base):
+class ElectricityUsage(ActorMixin, CreatedAtMixin, Base):
     """Energy consumed by one meter during one interval (an hour) starting at `recorded_at`.
 
     `kwh` is the consumption of the interval, not a cumulative meter reading.

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, WriteOnlyMapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.enums import MeterStatus, MeterType
-from app.models.base import TimestampMixin, str_enum
+from app.models.base import ActorMixin, TimestampMixin, str_enum
 
 if TYPE_CHECKING:
     from app.models.alert import Alert
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from app.models.room import Room
 
 
-class Meter(TimestampMixin, Base):
+class Meter(ActorMixin, TimestampMixin, Base):
     __tablename__ = "meters"
 
     id: Mapped[int] = mapped_column(primary_key=True)

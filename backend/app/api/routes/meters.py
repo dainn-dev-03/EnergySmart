@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.core.dependencies import DbSession, get_current_user, require_admin_or_manager
+from app.core.dependencies import CurrentUser, DbSession, get_current_user, require_admin_or_manager
 from app.schemas.common import ApiResponse, PaginatedResponse, paginated
 from app.schemas.meter import MeterCreate, MeterListParams, MeterRead, MeterUpdate
 from app.services.meter_service import MeterService
@@ -37,8 +37,8 @@ def get_meter(meter_id: int, service: ServiceDep) -> ApiResponse[MeterRead]:
     dependencies=WRITE_ACCESS,
     summary="Tạo công tơ",
 )
-def create_meter(payload: MeterCreate, service: ServiceDep) -> ApiResponse[MeterRead]:
-    meter = service.create(payload)
+def create_meter(payload: MeterCreate, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[MeterRead]:
+    meter = service.create(payload, current_user)
     return ApiResponse(message="Tạo công tơ thành công", data=MeterRead.model_validate(meter))
 
 
@@ -49,9 +49,9 @@ def create_meter(payload: MeterCreate, service: ServiceDep) -> ApiResponse[Meter
     summary="Cập nhật công tơ",
 )
 def update_meter(
-    meter_id: int, payload: MeterUpdate, service: ServiceDep
+    meter_id: int, payload: MeterUpdate, service: ServiceDep, current_user: CurrentUser
 ) -> ApiResponse[MeterRead]:
-    meter = service.update(meter_id, payload)
+    meter = service.update(meter_id, payload, current_user)
     return ApiResponse(message="Cập nhật công tơ thành công", data=MeterRead.model_validate(meter))
 
 
@@ -61,6 +61,6 @@ def update_meter(
     dependencies=WRITE_ACCESS,
     summary="Xóa công tơ (xóa luôn dữ liệu điện và cảnh báo của công tơ)",
 )
-def delete_meter(meter_id: int, service: ServiceDep) -> ApiResponse[None]:
-    service.delete(meter_id)
+def delete_meter(meter_id: int, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[None]:
+    service.delete(meter_id, current_user)
     return ApiResponse(message="Xóa công tơ thành công", data=None)

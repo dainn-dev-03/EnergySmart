@@ -5,10 +5,10 @@ from sqlalchemy import CheckConstraint, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-from app.models.base import CreatedAtMixin
+from app.models.base import ActorMixin, CreatedAtMixin
 
 
-class ElectricityPrice(CreatedAtMixin, Base):
+class ElectricityPrice(ActorMixin, CreatedAtMixin, Base):
     """Flat VND/kWh price valid from `effective_from` to `effective_to` (NULL = still valid)."""
 
     __tablename__ = "electricity_prices"

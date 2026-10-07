@@ -1,5 +1,6 @@
 import {
   BellRing,
+  ClipboardList,
   Building2,
   ChartLine,
   DoorOpen,
@@ -66,6 +67,17 @@ export const NAVIGATION: NavGroup[] = [
         description: "Tiêu thụ bất thường cần xử lý",
       },
       { title: "Báo cáo", href: "/reports", icon: FileText, description: "Báo cáo và xuất CSV" },
+    ],
+  },
+  {
+    label: "Quản trị",
+    items: [
+      {
+        title: "Nhật ký hoạt động",
+        href: "/audit-logs",
+        icon: ClipboardList,
+        description: "Lịch sử thao tác trong hệ thống",
+      },
     ],
   },
 ]

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.core.dependencies import DbSession, get_current_user, require_admin_or_manager
+from app.core.dependencies import CurrentUser, DbSession, get_current_user, require_admin_or_manager
 from app.schemas.common import ApiResponse, PaginatedResponse, paginated
 from app.schemas.room import RoomCreate, RoomListParams, RoomRead, RoomUpdate
 from app.services.room_service import RoomService
@@ -37,8 +37,8 @@ def get_room(room_id: int, service: ServiceDep) -> ApiResponse[RoomRead]:
     dependencies=WRITE_ACCESS,
     summary="Tạo phòng",
 )
-def create_room(payload: RoomCreate, service: ServiceDep) -> ApiResponse[RoomRead]:
-    room = service.create(payload)
+def create_room(payload: RoomCreate, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[RoomRead]:
+    room = service.create(payload, current_user)
     return ApiResponse(message="Tạo phòng thành công", data=RoomRead.model_validate(room))
 
 
@@ -48,8 +48,8 @@ def create_room(payload: RoomCreate, service: ServiceDep) -> ApiResponse[RoomRea
     dependencies=WRITE_ACCESS,
     summary="Cập nhật phòng",
 )
-def update_room(room_id: int, payload: RoomUpdate, service: ServiceDep) -> ApiResponse[RoomRead]:
-    room = service.update(room_id, payload)
+def update_room(room_id: int, payload: RoomUpdate, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[RoomRead]:
+    room = service.update(room_id, payload, current_user)
     return ApiResponse(message="Cập nhật phòng thành công", data=RoomRead.model_validate(room))
 
 
@@ -59,6 +59,6 @@ def update_room(room_id: int, payload: RoomUpdate, service: ServiceDep) -> ApiRe
     dependencies=WRITE_ACCESS,
     summary="Xóa phòng (chỉ khi không còn công tơ)",
 )
-def delete_room(room_id: int, service: ServiceDep) -> ApiResponse[None]:
-    service.delete(room_id)
+def delete_room(room_id: int, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[None]:
+    service.delete(room_id, current_user)
     return ApiResponse(message="Xóa phòng thành công", data=None)

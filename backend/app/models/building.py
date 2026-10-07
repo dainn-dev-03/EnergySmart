@@ -4,13 +4,13 @@ from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.base import TimestampMixin
+from app.models.base import ActorMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.floor import Floor
 
 
-class Building(TimestampMixin, Base):
+class Building(ActorMixin, TimestampMixin, Base):
     __tablename__ = "buildings"
 
     id: Mapped[int] = mapped_column(primary_key=True)

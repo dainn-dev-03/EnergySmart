@@ -17,7 +17,7 @@ from app.core.config import settings
 from app.core.enums import AlertSeverity, AlertType, MeterStatus
 from app.core.exceptions import ConflictError, InvalidInputError, NotFoundError
 from app.core.timezone import local_day_end_exclusive, local_day_start, local_now
-from app.models import Alert, Meter
+from app.models import Alert, AuditLog, Meter, User
 from app.repositories.alert_repository import AlertRepository
 from app.repositories.analytics_repository import AnalyticsRepository
 from app.repositories.meter_repository import MeterRepository
@@ -100,12 +100,14 @@ class AlertService:
             raise NotFoundError(f"Không tìm thấy cảnh báo có id={alert_id}")
         return alert
 
-    def resolve(self, alert_id: int) -> Alert:
+    def resolve(self, alert_id: int, actor: User) -> Alert:
         alert = self.get(alert_id)
         if alert.is_resolved:
             raise ConflictError("Cảnh báo đã được xử lý trước đó")
         alert.is_resolved = True
         alert.resolved_at = self._now()
+        alert.resolved_by_id = actor.id
+        self.db.add(AuditLog(user_id=actor.id, action="RESOLVE", entity_type="alerts", entity_id=alert.id, entity_label=alert.message, changes={"is_resolved": [False, True]}))
         self.db.commit()
         self.db.refresh(alert)
         return alert

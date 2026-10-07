@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.core.dependencies import DbSession, get_current_user, require_admin_or_manager
+from app.core.dependencies import CurrentUser, DbSession, get_current_user, require_admin_or_manager
 from app.schemas.common import ApiResponse, PaginatedResponse, paginated
 from app.schemas.floor import FloorCreate, FloorListParams, FloorRead, FloorUpdate
 from app.services.floor_service import FloorService
@@ -37,8 +37,8 @@ def get_floor(floor_id: int, service: ServiceDep) -> ApiResponse[FloorRead]:
     dependencies=WRITE_ACCESS,
     summary="Tạo tầng",
 )
-def create_floor(payload: FloorCreate, service: ServiceDep) -> ApiResponse[FloorRead]:
-    floor = service.create(payload)
+def create_floor(payload: FloorCreate, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[FloorRead]:
+    floor = service.create(payload, current_user)
     return ApiResponse(message="Tạo tầng thành công", data=FloorRead.model_validate(floor))
 
 
@@ -49,9 +49,9 @@ def create_floor(payload: FloorCreate, service: ServiceDep) -> ApiResponse[Floor
     summary="Cập nhật tầng",
 )
 def update_floor(
-    floor_id: int, payload: FloorUpdate, service: ServiceDep
+    floor_id: int, payload: FloorUpdate, service: ServiceDep, current_user: CurrentUser
 ) -> ApiResponse[FloorRead]:
-    floor = service.update(floor_id, payload)
+    floor = service.update(floor_id, payload, current_user)
     return ApiResponse(message="Cập nhật tầng thành công", data=FloorRead.model_validate(floor))
 
 
@@ -61,6 +61,6 @@ def update_floor(
     dependencies=WRITE_ACCESS,
     summary="Xóa tầng (chỉ khi không còn phòng)",
 )
-def delete_floor(floor_id: int, service: ServiceDep) -> ApiResponse[None]:
-    service.delete(floor_id)
+def delete_floor(floor_id: int, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[None]:
+    service.delete(floor_id, current_user)
     return ApiResponse(message="Xóa tầng thành công", data=None)

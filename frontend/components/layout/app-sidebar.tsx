@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { NAVIGATION } from "@/components/layout/navigation"
+import { useIsAdmin } from "@/hooks/use-current-user"
 import {
   Sidebar,
   SidebarContent,
@@ -21,6 +22,7 @@ import {
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const isAdmin = useIsAdmin()
 
   return (
     <Sidebar collapsible="icon">
@@ -42,7 +44,7 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        {NAVIGATION.map((group) => (
+        {NAVIGATION.filter((group) => group.label !== "Quản trị" || isAdmin).map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>

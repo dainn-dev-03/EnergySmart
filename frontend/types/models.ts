@@ -16,6 +16,25 @@ export interface User {
   updated_at: string
 }
 
+export interface UserSummary {
+  id: number
+  username: string
+  full_name: string | null
+}
+
+export interface AuditLog {
+  id: number
+  user_id: number | null
+  action: string
+  entity_type: string
+  entity_id: number | null
+  entity_label: string
+  changes: Record<string, unknown> | null
+  ip_address: string | null
+  created_at: string
+  user: UserSummary | null
+}
+
 export interface LoginResult {
   access_token: string
   token_type: string
