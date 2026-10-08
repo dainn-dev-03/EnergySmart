@@ -1,6 +1,6 @@
 # EnergySmart — Kiến trúc hệ thống
 
-Website quản lý và phân tích tiêu thụ điện năng cho tòa nhà (bản BASE: chưa có ML/AI/IoT, dữ liệu điện được giả lập).
+Website quản lý và phân tích tiêu thụ điện năng cho tòa nhà (dữ liệu điện được giả lập; trợ lý hỏi đáp dùng Gemini, chưa có ML/dự báo hoặc IoT).
 
 ## 1. Tổng quan
 
@@ -10,7 +10,7 @@ Browser (http://localhost:3000)
    ▼
 frontend · Next.js App Router · TypeScript strict · giao diện tiếng Việt      :3000
    │  middleware.ts   chặn route khi chưa có token → /login
-   │  app/(main)/*    dashboard, CRUD, analytics, alerts, reports
+   │  app/(main)/*    dashboard, CRUD, analytics, alerts, reports, chat
    │  components/     layout · charts (Recharts) · forms (React Hook Form + Zod)
    │  hooks/          TanStack Query: cache, loading, refetch
    │  lib/api.ts      axios: gắn Bearer JWT, bóc envelope, xử lý 401
@@ -20,15 +20,18 @@ frontend · Next.js App Router · TypeScript strict · giao diện tiếng Việ
 backend · FastAPI · Python ≥ 3.12                                              :8000
    │  api/routes      HTTP + phân quyền (Depends)
    │  schemas         Pydantic: validate input, định dạng output
-   │  services        business logic: cost, analytics, alert, report
+   │  services        business logic: cost, analytics, alert, report, Gemini chat tools
    │  repositories    truy vấn SQLAlchemy: CRUD + aggregate
    │  core            config · DB session · JWT · exception handlers
    │  seed/ alembic/  dữ liệu giả lập · migration
    │
    │  SQLAlchemy 2.1 + psycopg 3
    ▼
-PostgreSQL (cài trên máy)                                                      :5432
+PostgreSQL (dữ liệu điện, users)                                               :5432
+MongoDB (metadata hội thoại, các lượt chat)                                    :27017
 ```
+
+Chatbot là trợ lý Gemini hỗ trợ kiến thức phổ thông và dữ liệu năng lượng EnergySmart. Với kiến thức phổ thông, trả lời dựa trên kiến thức sẵn có của mô hình và nêu rõ không có tra cứu Internet/thông tin thời gian thực; với dữ liệu vận hành, agent dùng các công cụ analytics trong allowlist, hỏi lại khi thiếu thông tin và không bịa số liệu. Agent điều phối theo vòng bounded plan → act → observe → re-plan (tối đa 4 vòng gọi tool). `ChatService` xác thực tham số và gọi `AnalyticsService`, không cho phép model tạo SQL hoặc truy cập database trực tiếp. Phản hồi cuối được gửi cho giao diện theo Server-Sent Events (SSE): token văn bản và payload trực quan hóa được phát riêng. KPI, bảng và các hiển thị phân tích được dựng từ kết quả công cụ analytics thực tế, không trích số từ Markdown; payload trực quan hóa lưu cùng message trợ lý trong MongoDB để còn hiển thị ở lịch sử chat. Lượt chat chỉ được ghi sau khi sinh hoàn tất. API key chỉ nằm trong `backend/.env`. Conversation metadata được lưu trong MongoDB `chat_conversations`; mỗi cặp user/model được lưu thành một turn document trong `chat_turns`, với hai message con chứa role/content và payload trực quan hóa tùy chọn ở message trợ lý. Cả hai collection có `user_id` lấy từ JWT đã xác thực; mỗi truy vấn và thao tác đều lọc theo owner. PostgreSQL vẫn là nguồn xác thực user và dữ liệu điện. Cần chạy MongoDB để sử dụng chat; cấu hình `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_TIMEOUT_MS`, `MONGODB_URI`, `MONGODB_DATABASE` và `MONGODB_TIMEOUT_MS`.
 
 Project chạy hoàn toàn local, không dùng Docker. PostgreSQL do người dùng tự cài và tự tạo database; backend đọc thông tin kết nối từ `backend/.env`.
 
@@ -93,7 +96,7 @@ Prefix `/api/v1`. Mọi endpoint trừ `/auth/login` và `/health` cần `Author
 | 404 | `NOT_FOUND` |
 | 409 | `CONFLICT` |
 | 422 | `VALIDATION_ERROR`, `PRICE_NOT_FOUND`, `BUSINESS_RULE_VIOLATION` |
-| 503 | `DATABASE_UNAVAILABLE` |
+| 503 | `DATABASE_UNAVAILABLE`, `SERVICE_UNAVAILABLE` |
 | 500 | `INTERNAL_ERROR` |
 
 **Xác thực**: JWT HS256 (`sub` = user id, `role`, `exp` mặc định 8 giờ). `JWT_SECRET_KEY` bắt buộc dài ít nhất 32 ký tự. Mật khẩu được hash bằng Argon2. Username không phân biệt hoa thường. Mỗi request đều đọc lại user từ DB, nên tài khoản bị khóa sẽ mất quyền truy cập ngay.
@@ -109,6 +112,9 @@ Prefix `/api/v1`. Mọi endpoint trừ `/auth/login` và `/health` cần `Author
 | Analytics | `GET /analytics/daily`, `/monthly`, `/hourly`, `/by-floor`, `/by-room`, `/comparison` |
 | Alerts | `GET /alerts`, `POST /alerts/{id}/resolve`, `POST /alerts/detect` |
 | Reports | `GET /reports/consumption`, `GET /reports/consumption/export` (CSV) |
+| Chat | `GET /chat/conversations`, `POST /chat/conversations`, `GET /chat/conversations/{id}`, `DELETE /chat/conversations/{id}`, `POST /chat/conversations/{id}/messages` (JWT) |
+
+Conversation được gắn với `user_id`; list/detail/delete chỉ truy cập conversation của user hiện tại. MongoDB lưu message history thành từng turn user + model; khi gọi Gemini, backend lấy tối đa 2 turn gần nhất (4 message trước đó, cộng câu hỏi hiện tại thành tối đa 5 message) và giới hạn prompt ở 24.000 ký tự, ưu tiên giữ trọn các cặp user/model. Frontend chỉ gửi conversation ID và câu hỏi hiện tại; backend tự tải lịch sử từ MongoDB để tránh tin vào history do client cung cấp. Luồng agent: kiểm tra quyền sở hữu → nạp ngữ cảnh → phân loại phạm vi/thiếu thông tin → gọi các tool analytics allowlist khi cần → đánh giá kết quả và lặp có giới hạn → stream câu trả lời hoặc câu hỏi làm rõ → lưu turn hoàn tất. Với câu hỏi phân tích rộng, agent ưu tiên lấy tổng quan, dữ liệu theo tầng và top phòng để giao diện hiển thị biểu đồ/bảng; chỉ các loại dữ liệu thực sự được tool trả về mới được dựng. Hội thoại mới là bản nháp trên frontend; chỉ tạo document conversation sau khi agent trả lời hoàn tất. Endpoint gửi message phản hồi dạng SSE với các event `token`, `visualization` (nếu công cụ trả dữ liệu phân tích), `done` hoặc `error`; payload visualization lưu kèm message trợ lý. Xóa conversation sẽ xóa các turn tương ứng. Nếu MongoDB hoặc Gemini không sẵn sàng trước khi bắt đầu stream, API trả `503 SERVICE_UNAVAILABLE`.
 
 **Quy ước CRUD**
 - PUT là cập nhật toàn bộ, gửi đủ các trường giống POST. POST trả về 201; DELETE trả về 200 kèm `data: null`.

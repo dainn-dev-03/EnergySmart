@@ -9,6 +9,7 @@ import {
   Gauge,
   Layers,
   LayoutDashboard,
+  MessageCircle,
   Zap,
   type LucideIcon,
 } from "lucide-react"
@@ -60,6 +61,12 @@ export const NAVIGATION: NavGroup[] = [
         href: "/analytics",
         icon: ChartLine,
         description: "Xu hướng, giờ cao điểm, so sánh các kỳ",
+      },
+      {
+        title: "Trợ lý AI",
+        href: "/chat",
+        icon: MessageCircle,
+        description: "Hỏi đáp dữ liệu tiêu thụ điện",
       },
       {
         title: "Cảnh báo",

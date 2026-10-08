@@ -15,18 +15,24 @@ interface StatCardProps {
 /** Stat tile: sentence-case label, one prominent value (proportional figures), optional footer. */
 export function StatCard({ label, value, icon: Icon, footer }: StatCardProps) {
   return (
-    <Card className="gap-2">
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="gap-2 relative overflow-hidden group/stat border-border/60">
+      {/* Decorative subtle background gradient */}
+      <div className="absolute top-0 right-0 p-4 opacity-5 transition-opacity duration-300 group-hover/stat:opacity-10 pointer-events-none">
+        <Icon className="size-20 translate-x-4 -translate-y-4" aria-hidden />
+      </div>
+      <CardHeader className="flex flex-row items-center justify-between pb-2 z-10 relative">
         <CardTitle className="text-muted-foreground text-sm font-medium">{label}</CardTitle>
-        <Icon className="text-muted-foreground size-4" aria-hidden />
+        <div className="bg-primary/10 text-primary p-2 rounded-md">
+          <Icon className="size-4" aria-hidden />
+        </div>
       </CardHeader>
-      <CardContent className="space-y-1">
+      <CardContent className="space-y-1.5 z-10 relative">
         {value === undefined ? (
-          <Skeleton className="h-8 w-28" />
+          <Skeleton className="h-9 w-28" />
         ) : (
-          <p className="text-2xl font-semibold tracking-tight">{value}</p>
+          <p className="text-3xl font-bold tracking-tight text-foreground">{value}</p>
         )}
-        {footer ? <div className="text-muted-foreground text-xs">{footer}</div> : null}
+        {footer ? <div className="text-muted-foreground text-xs pt-1 border-t border-border/40 font-medium flex items-center">{footer}</div> : null}
       </CardContent>
     </Card>
   )

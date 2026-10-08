@@ -1,4 +1,6 @@
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +9,13 @@ from app.api.router import api_router
 from app.api.routes import health
 from app.core.config import settings
 from app.core.exception_handlers import register_exception_handlers
+from app.core.mongo import close_chat_database
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    yield
+    close_chat_database()
 
 
 def create_app() -> FastAPI:
@@ -21,6 +30,7 @@ def create_app() -> FastAPI:
         description="API quản lý và phân tích tiêu thụ điện năng cho tòa nhà.",
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=lifespan,
     )
     app.add_middleware(
         CORSMiddleware,

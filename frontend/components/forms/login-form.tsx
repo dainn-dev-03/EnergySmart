@@ -52,12 +52,14 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle className="text-xl">Đăng nhập</CardTitle>
-        <CardDescription>Nhập tài khoản để truy cập hệ thống</CardDescription>
+    <Card className="w-full glass-card border-white/20 dark:border-white/10 shadow-2xl shadow-primary/5">
+      <CardHeader className="space-y-1 pb-6 pt-8 text-center">
+        <CardTitle className="text-2xl font-semibold tracking-tight">Đăng nhập</CardTitle>
+        <CardDescription className="text-sm">
+          Nhập tài khoản để truy cập hệ thống
+        </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pb-8">
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
           <FieldGroup>
             <Controller

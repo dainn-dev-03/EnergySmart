@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Self
 
-from pydantic import SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL, make_url
 
@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 480
 
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str = "gemini-2.5-flash"
+    gemini_timeout_ms: int = Field(20_000, ge=1_000, le=120_000)
+    mongodb_uri: SecretStr | None = None
+    mongodb_database: str = "energy_smart"
+    mongodb_timeout_ms: int = Field(5_000, ge=1_000, le=60_000)
+
     cors_origins: str = "http://localhost:3000"
     app_timezone: str = "Asia/Ho_Chi_Minh"
 
@@ -44,6 +51,20 @@ class Settings(BaseSettings):
     alert_ratio_info: float = 1.2
     alert_ratio_warning: float = 1.5
     alert_ratio_critical: float = 2.0
+
+    @field_validator("gemini_api_key", mode="before")
+    @classmethod
+    def _blank_gemini_key_is_unset(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("mongodb_uri", mode="before")
+    @classmethod
+    def _blank_mongodb_uri_is_unset(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @field_validator("jwt_secret_key")
     @classmethod

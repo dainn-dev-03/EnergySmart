@@ -97,10 +97,10 @@ export function DashboardView() {
   const warningFloors = floorTrends.filter((floor) => floor.status === "WARNING")
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in duration-500">
       <PageHeader title="Tổng quan" description="Tình hình tiêu thụ điện của tòa nhà, cập nhật theo giờ" />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           label="Tiêu thụ hôm nay"
           icon={Zap}
@@ -137,7 +137,7 @@ export function DashboardView() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard
           title="Tiêu thụ theo ngày"
           description="30 ngày gần nhất (kWh)"

@@ -323,6 +323,11 @@ export function UsageFormDialog({ open, onOpenChange, entity }: DialogProps<Elec
       power_factor: optionalNumber(v.power_factor),
     }),
   })
+
+  const hourValue = form.watch("hour")
+  const hourNum = hourValue ? parseInt(hourValue, 10) : 0
+  const hourHelper = `Dữ liệu áp dụng cho khoảng ${String(hourNum).padStart(2, "0")}:00 – ${String((hourNum + 1) % 24).padStart(2, "0")}:00`
+
   return (
     <FormDialog
       open={open}
@@ -336,7 +341,13 @@ export function UsageFormDialog({ open, onOpenChange, entity }: DialogProps<Elec
       <SelectField control={form.control} name="meter_id" label="Công tơ" options={meters} />
       <div className="grid gap-4 sm:grid-cols-2">
         <DateField control={form.control} name="date" label="Ngày" max={today()} />
-        <SelectField control={form.control} name="hour" label="Khung giờ bắt đầu" options={HOUR_OPTIONS} />
+        <SelectField 
+          control={form.control} 
+          name="hour" 
+          label="Giờ bắt đầu" 
+          options={HOUR_OPTIONS} 
+          description={hourHelper}
+        />
       </div>
       <TextField control={form.control} name="kwh" label="Điện năng (kWh)" inputMode="decimal" />
       <div className="grid gap-4 sm:grid-cols-3">

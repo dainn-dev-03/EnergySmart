@@ -4,10 +4,11 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     alerts,
-    audit_logs,
     analytics,
+    audit_logs,
     auth,
     buildings,
+    chat,
     dashboard,
     electricity_prices,
     electricity_usages,
@@ -22,6 +23,7 @@ api_router = APIRouter()
 for module in (
     auth,
     buildings,
+    chat,
     floors,
     rooms,
     meters,

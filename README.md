@@ -2,7 +2,7 @@
 
 Website quản lý và phân tích tiêu thụ điện năng cho tòa nhà: quản lý tòa nhà, tầng, phòng và công tơ; dữ liệu điện theo giờ; dashboard; phân tích; cảnh báo tiêu thụ bất thường; báo cáo xuất CSV.
 
-> Phiên bản BASE (đồ án). Chưa có Machine Learning/AI, chưa kết nối công tơ thật hay IoT/MQTT. Dữ liệu điện được **giả lập** bằng lệnh seed.
+> Phiên bản BASE (đồ án). Chưa có Machine Learning/dự báo, chưa kết nối công tơ thật hay IoT/MQTT. Trợ lý hỏi đáp dùng Gemini; dữ liệu điện được **giả lập** bằng lệnh seed.
 
 Mục lục:
 1. [Giới thiệu](#1-giới-thiệu)
@@ -36,6 +36,7 @@ Mô hình dữ liệu: **Tòa nhà → Tầng → Phòng → Công tơ → Dữ 
 | Phân tích | So sánh ngày/tuần/tháng với kỳ trước (cùng khoảng thời gian đã trôi qua), biểu đồ tải theo giờ (giờ cao điểm), tiêu thụ theo tầng/phòng |
 | Cảnh báo | Ngày tiêu thụ ≥ 1,2 / 1,5 / 2 lần mức trung bình 14 ngày cùng loại → INFO / WARNING / CRITICAL; đánh dấu đã xử lý |
 | Báo cáo | Gom theo tầng, phòng hoặc công tơ trong một khoảng ngày; xuất CSV mở được bằng Excel |
+| Trợ lý AI | Hỗ trợ kiến thức phổ thông và dữ liệu EnergySmart; dùng tool analytics allowlist cho số liệu nội bộ, hỏi lại khi thiếu thông tin; stream câu trả lời và lưu lịch sử theo user trong MongoDB |
 
 Toàn bộ giao diện bằng tiếng Việt; số, tiền và ngày định dạng theo vi-VN; thời gian tính theo giờ Việt Nam.
 
@@ -61,8 +62,8 @@ Thiết kế chi tiết (ERD, quy ước API, thuật toán cảnh báo, dữ li
 
 | Phần | Công nghệ |
 |---|---|
-| Backend | Python ≥ 3.12, FastAPI, SQLAlchemy 2.1, Alembic, Pydantic v2, PyJWT, pwdlib (Argon2), psycopg 3 |
-| Cơ sở dữ liệu | PostgreSQL (đã kiểm tra với PostgreSQL 18) |
+| Backend | Python ≥ 3.12, FastAPI, SQLAlchemy 2.1, Alembic, Pydantic v2, Google Gen AI SDK (Gemini), PyJWT, pwdlib (Argon2), psycopg 3 |
+| Cơ sở dữ liệu | PostgreSQL (dữ liệu nghiệp vụ), MongoDB (hội thoại chatbot) |
 | Frontend | Next.js 16 (App Router, TypeScript strict), Tailwind CSS v4, shadcn/ui (Radix), TanStack Query, axios, React Hook Form, Zod, Recharts |
 | Chất lượng code | pytest, ruff, mypy (strict), ESLint, `tsc --noEmit` |
 
@@ -81,7 +82,7 @@ EnergySmart/
 │   │   ├── api/routes/          # REST endpoints /api/v1/*
 │   │   └── seed/                # dữ liệu giả lập: master data, usage_simulator, seed_database (CLI)
 │   ├── alembic/                 # migration (versions/20261007_0001_initial_schema.py)
-│   ├── tests/                   # pytest (106 test)
+│   ├── tests/                   # pytest (116 test)
 │   ├── requirements.txt         # thư viện runtime
 │   ├── requirements-dev.txt     # + pytest, ruff, mypy
 │   ├── pyproject.toml           # cấu hình ruff / mypy / pytest
@@ -122,6 +123,12 @@ Không commit file `.env` hay `.env.local`. Hãy sao chép từ file `.env.examp
 | `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES` | | `HS256`, `480` | Thuật toán và thời hạn token (phút) |
 | `CORS_ORIGINS` | | `http://localhost:3000` | Các origin frontend được phép, ngăn cách bằng dấu phẩy |
 | `APP_TIMEZONE` | | `Asia/Ho_Chi_Minh` | Múi giờ dùng để tính "ngày" và "tháng" |
+| `GEMINI_API_KEY` | | | API key tạo từ Google AI Studio; để trống thì chatbot không hoạt động. Chỉ cấu hình ở backend |
+| `GEMINI_MODEL` | | `gemini-2.5-flash` | Model Gemini được backend sử dụng |
+| `GEMINI_TIMEOUT_MS` | | `20000` | Thời gian chờ một yêu cầu Gemini (mili giây) |
+| `MONGODB_URI` | | | URI kết nối MongoDB, ví dụ `mongodb://localhost:27017`; cần cho lịch sử chatbot |
+| `MONGODB_DATABASE` | | `energy_smart` | Database MongoDB lưu metadata hội thoại và các lượt chat |
+| `MONGODB_TIMEOUT_MS` | | `5000` | Timeout kết nối MongoDB (mili giây) |
 | `DEBUG` | | `false` | Log chi tiết |
 | `ALERT_RATIO_INFO`, `ALERT_RATIO_WARNING`, `ALERT_RATIO_CRITICAL` | | `1.2`, `1.5`, `2.0` | Ngưỡng cảnh báo |
 | `ALERT_BASELINE_DAYS`, `ALERT_MIN_REFERENCE_DAYS` | | `14`, `3` | Số ngày tham chiếu khi tính mức trung bình |
@@ -145,7 +152,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 ## 6. Cài đặt
 
-Yêu cầu: **Python ≥ 3.12**, **Node.js ≥ 20**, **PostgreSQL** đang chạy trên máy, và khoảng 1 GB ổ đĩa cho thư viện.
+Yêu cầu: **Python ≥ 3.12**, **Node.js ≥ 20**, **PostgreSQL** đang chạy trên máy; cài/chạy **MongoDB** nếu sử dụng chatbot, và khoảng 1 GB ổ đĩa cho thư viện.
 
 **Bước 1: tạo database** (dùng psql hoặc pgAdmin, với user có quyền tạo DB):
 
@@ -165,6 +172,8 @@ pip install -r requirements-dev.txt     # chỉ để chạy app thì dùng requ
 
 Copy-Item .env.example .env             # macOS/Linux: cp .env.example .env
 # Mở .env: điền POSTGRES_PASSWORD (và các POSTGRES_* khác nếu cần), đặt JWT_SECRET_KEY >= 32 ký tự
+# Để dùng chatbot: thêm API key Google AI Studio vào GEMINI_API_KEY trong backend/.env
+# Để lưu lịch sử chatbot: cài/chạy MongoDB và đặt MONGODB_URI trong backend/.env
 ```
 
 **Bước 3: cài frontend.**
@@ -322,7 +331,7 @@ ruff check . ; ruff format --check . ; mypy app tests ; pytest
 npm run lint ; npm run typecheck ; npm run build
 ```
 
-- **Backend có 106 test**, chạy trên DB `POSTGRES_TEST_DB` (khác DB chính), mỗi test được rollback. Các test bao phủ: auth, CRUD của 6 resource, quy tắc xóa và constraint, dashboard, analytics, cảnh báo, báo cáo/CSV, bộ mô phỏng và lệnh seed.
+- **Backend có 122 test**, chạy trên DB `POSTGRES_TEST_DB` (khác DB chính), mỗi test được rollback. Các test bao phủ: auth, CRUD của 6 resource, quy tắc xóa và constraint, dashboard, analytics, cảnh báo, báo cáo/CSV, chatbot, bộ mô phỏng và lệnh seed.
 - Pytest **từ chối chạy** nếu `POSTGRES_TEST_DB` trùng với DB chính, để không xóa nhầm dữ liệu.
 
 ## Kịch bản demo

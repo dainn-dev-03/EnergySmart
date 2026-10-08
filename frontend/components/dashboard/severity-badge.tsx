@@ -19,8 +19,13 @@ export const SEVERITY: Record<AlertSeverity, SeverityStyle> = {
 export function SeverityBadge({ severity }: { severity: AlertSeverity }) {
   const style = SEVERITY[severity]
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm font-medium whitespace-nowrap">
-      <style.icon className={cn("size-4", style.colorClass)} aria-hidden />
+    <span className={cn(
+      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap border",
+      severity === "CRITICAL" && "bg-status-critical/10 text-status-critical border-status-critical/20",
+      severity === "WARNING" && "bg-status-serious/10 text-status-serious border-status-serious/20",
+      severity === "INFO" && "bg-status-warning/10 text-status-warning border-status-warning/20",
+    )}>
+      <style.icon className="size-3.5" aria-hidden />
       {style.label}
     </span>
   )

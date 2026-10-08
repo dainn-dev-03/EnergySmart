@@ -22,6 +22,11 @@ export const metadata: Metadata = {
     template: "%s · EnergySmart",
   },
   description: "Quản lý và phân tích tiêu thụ điện năng cho tòa nhà",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 }
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
