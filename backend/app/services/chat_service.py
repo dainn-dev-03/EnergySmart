@@ -246,6 +246,9 @@ class ChatService:
         def generate() -> Iterator[ChatStreamEvent]:
             visualization: dict[str, Any] = {}
             try:
+                yield ChatStreamEvent(
+                    event="status", content="Đang xác định dữ liệu cần tra cứu…"
+                )
                 for _ in range(MAX_TOOL_ROUNDS):
                     response = client.models.generate_content(
                         model=settings.gemini_model,
@@ -269,6 +272,17 @@ class ChatService:
 
                     contents.append(model_content)
                     for function_call in function_calls:
+                        status = {
+                            "get_energy_summary": "Đang tra cứu tổng điện năng…",
+                            "get_consumption_by_floor": "Đang tra cứu mức tiêu thụ theo tầng…",
+                            "get_consumption_by_room": "Đang tra cứu mức tiêu thụ theo phòng…",
+                            "compare_consumption": "Đang so sánh mức tiêu thụ…",
+                            "get_hourly_profile": "Đang tra cứu mức tiêu thụ theo giờ…",
+                        }.get(
+                            function_call.name or "",
+                            "Đang tra cứu dữ liệu năng lượng…",
+                        )
+                        yield ChatStreamEvent(event="status", content=status)
                         try:
                             result = self._run_tool(
                                 function_call.name or "",
@@ -302,6 +316,9 @@ class ChatService:
                     )
 
                 answer_parts: list[str] = []
+                yield ChatStreamEvent(
+                    event="status", content="Đang tổng hợp câu trả lời…"
+                )
                 for chunk in client.models.generate_content_stream(
                     model=settings.gemini_model,
                     contents=contents,

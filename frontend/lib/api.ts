@@ -120,6 +120,7 @@ export async function apiStreamPost(
   body: unknown,
   onToken: (content: string) => void,
   onVisualization?: (visualization: ChatVisualization) => void,
+  onStatus?: (status: string) => void,
 ): Promise<{ conversation_id: string }> {
   const token = getToken()
   const response = await fetch(
@@ -186,6 +187,12 @@ export async function apiStreamPost(
       typeof payload.content === "string"
     ) {
       onToken(payload.content)
+    } else if (
+      event === "status" &&
+      "content" in payload &&
+      typeof payload.content === "string"
+    ) {
+      onStatus?.(payload.content)
     } else if (
       event === "visualization" &&
       "visualization" in payload &&

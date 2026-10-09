@@ -13,7 +13,7 @@ import {
 import ReactMarkdown from "react-markdown"
 import rehypeKatex from "rehype-katex"
 import remarkMath from "remark-math"
-import { useEffect, useRef, useState } from "react"
+import { memo, useEffect, useRef, useState } from "react"
 import type { FormEvent } from "react"
 
 import { PageHeader } from "@/components/layout/page-header"
@@ -73,15 +73,18 @@ const assistantMessageClass =
   "[&_code]:px-1 [&_code]:py-0.5 [&_pre]:my-2 [&_pre]:overflow-x-auto " +
   "[&_pre]:rounded [&_pre]:bg-background/70 [&_pre]:p-3"
 
-function AssistantMessage({ content }: { content: string }) {
+const markdownRemarkPlugins = [remarkMath]
+const markdownRehypePlugins = [rehypeKatex]
+
+const AssistantMessage = memo(function AssistantMessage({ content }: { content: string }) {
   return (
     <div className={assistantMessageClass}>
-      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+      <ReactMarkdown remarkPlugins={markdownRemarkPlugins} rehypePlugins={markdownRehypePlugins}>
         {content}
       </ReactMarkdown>
     </div>
   )
-}
+})
 
 function AnalyticsTable({
   title,
@@ -126,7 +129,11 @@ function AnalyticsTable({
   )
 }
 
-function AnalyticsVisualization({ data }: { data: ChatVisualization }) {
+const AnalyticsVisualization = memo(function AnalyticsVisualization({
+  data,
+}: {
+  data: ChatVisualization
+}) {
   const floors = data.floors?.items ?? []
   const rooms = data.rooms?.items ?? []
   const hourly = data.hourly?.items ?? []
@@ -199,7 +206,7 @@ function AnalyticsVisualization({ data }: { data: ChatVisualization }) {
       </div>
     </section>
   )
-}
+})
 
 export function ChatView() {
   const queryClient = useQueryClient()
@@ -209,8 +216,54 @@ export function ChatView() {
   const [pendingQuestion, setPendingQuestion] = useState<string>()
   const [streamedAnswer, setStreamedAnswer] = useState("")
   const [streamedVisualization, setStreamedVisualization] = useState<ChatVisualization>()
+  const [streamComplete, setStreamComplete] = useState(false)
+  const [streamStatus, setStreamStatus] = useState("")
   const [sendError, setSendError] = useState<string>()
   const endOfMessages = useRef<HTMLDivElement>(null)
+  const pendingStreamChunks = useRef("")
+  const streamFlushTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const streamDrainResolvers = useRef<Array<() => void>>([])
+
+  function flushStreamedAnswer() {
+    if (streamFlushTimeout.current !== null) {
+      clearTimeout(streamFlushTimeout.current)
+      streamFlushTimeout.current = null
+    }
+    const characters = Array.from(pendingStreamChunks.current)
+    const chunk = characters.slice(0, 1).join("")
+    pendingStreamChunks.current = characters.slice(1).join("")
+    if (chunk) setStreamedAnswer((previous) => previous + chunk)
+    if (pendingStreamChunks.current) {
+      streamFlushTimeout.current = setTimeout(flushStreamedAnswer, 4)
+      return
+    }
+    streamDrainResolvers.current.splice(0).forEach((resolve) => resolve())
+  }
+
+  function queueStreamedChunk(chunk: string) {
+    pendingStreamChunks.current += chunk
+    if (streamFlushTimeout.current !== null) return
+    streamFlushTimeout.current = setTimeout(flushStreamedAnswer, 4)
+  }
+
+  function clearPendingStreamChunks() {
+    if (streamFlushTimeout.current !== null) {
+      clearTimeout(streamFlushTimeout.current)
+      streamFlushTimeout.current = null
+    }
+    pendingStreamChunks.current = ""
+    streamDrainResolvers.current.splice(0).forEach((resolve) => resolve())
+  }
+
+  function waitForStreamFlush() {
+    if (!pendingStreamChunks.current && streamFlushTimeout.current === null) {
+      return Promise.resolve()
+    }
+    return new Promise<void>((resolve) => {
+      streamDrainResolvers.current.push(resolve)
+    })
+  }
+
   const conversations = useQuery({
     queryKey: ["chat", "conversations"],
     queryFn: () => apiGet<Conversation[]>("/chat/conversations"),
@@ -223,26 +276,37 @@ export function ChatView() {
   })
   const sendMessage = useMutation({
     mutationFn: async ({ content }: { content: string }) => {
-      return apiStreamPost(
+      const result = await apiStreamPost(
         "/chat/messages",
         { conversation_id: activeConversationId ?? null, content },
-        (chunk) => setStreamedAnswer((previous) => previous + chunk),
+        (chunk) => {
+          setStreamStatus("")
+          queueStreamedChunk(chunk)
+        },
         setStreamedVisualization,
+        setStreamStatus,
       )
+      await waitForStreamFlush()
+      return result
     },
     onSuccess: async ({ conversation_id }) => {
       setConversationId(conversation_id)
       setIsDraft(false)
+      setStreamComplete(true)
       setSendError(undefined)
+      setStreamStatus("")
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["chat", "conversations"] }),
         queryClient.invalidateQueries({ queryKey: ["chat", "conversation", conversation_id] }),
       ])
     },
     onError: (error) => {
+      clearPendingStreamChunks()
       setPendingQuestion(undefined)
       setStreamedAnswer("")
       setStreamedVisualization(undefined)
+      setStreamComplete(false)
+      setStreamStatus("")
       setSendError(errorMessage(error))
     },
   })
@@ -261,15 +325,36 @@ export function ChatView() {
 
   useEffect(() => {
     endOfMessages.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [conversation.data, pendingQuestion, sendError, sendMessage.isPending, streamedAnswer])
+  }, [conversation.data, pendingQuestion, sendError, sendMessage.isPending])
+
+  useEffect(() => {
+    if (streamedAnswer) {
+      endOfMessages.current?.scrollIntoView({ behavior: "auto", block: "end" })
+    }
+  }, [streamedAnswer])
+
+  useEffect(
+    () => () => {
+      if (streamFlushTimeout.current !== null) {
+        clearTimeout(streamFlushTimeout.current)
+        streamFlushTimeout.current = null
+      }
+      pendingStreamChunks.current = ""
+      streamDrainResolvers.current.splice(0).forEach((resolve) => resolve())
+    },
+    [],
+  )
 
   function submitMessage(event: FormEvent<HTMLFormElement>, suggested?: string) {
     event.preventDefault()
     const content = (suggested ?? input).trim()
     if (!content || sendMessage.isPending) return
+    clearPendingStreamChunks()
     setPendingQuestion(content)
     setStreamedAnswer("")
     setStreamedVisualization(undefined)
+    setStreamComplete(false)
+    setStreamStatus("Đang kết nối trợ lý…")
     setSendError(undefined)
     setInput("")
     sendMessage.mutate({ content })
@@ -277,19 +362,25 @@ export function ChatView() {
 
   function sendSuggested(question: string) {
     if (sendMessage.isPending) return
+    clearPendingStreamChunks()
     setPendingQuestion(question)
     setStreamedAnswer("")
     setStreamedVisualization(undefined)
+    setStreamComplete(false)
+    setStreamStatus("Đang kết nối trợ lý…")
     setSendError(undefined)
     sendMessage.mutate({ content: question })
   }
 
   function startNewConversation() {
+    clearPendingStreamChunks()
     setConversationId(undefined)
     setIsDraft(true)
     setPendingQuestion(undefined)
     setStreamedAnswer("")
     setStreamedVisualization(undefined)
+    setStreamComplete(false)
+    setStreamStatus("")
     setSendError(undefined)
   }
 
@@ -333,12 +424,16 @@ export function ChatView() {
               <div key={item.id} className="flex items-center gap-1">
                 <button
                   type="button"
+                  disabled={isSending}
                   onClick={() => {
+                    clearPendingStreamChunks()
                     setConversationId(item.id)
                     setIsDraft(false)
                     setPendingQuestion(undefined)
                     setStreamedAnswer("")
                     setStreamedVisualization(undefined)
+                    setStreamComplete(false)
+                    setStreamStatus("")
                     setSendError(undefined)
                   }}
                   className={`min-w-0 flex-1 truncate rounded-md px-3 py-2 text-left text-sm hover:bg-muted ${
@@ -460,7 +555,7 @@ export function ChatView() {
                   <Bot className="text-primary mt-1 size-5 shrink-0" aria-hidden />
                   <div className="flex min-w-0 flex-1 flex-col gap-4">
                     <AssistantMessage content={streamedAnswer} />
-                    {streamedVisualization ? (
+                    {streamComplete && streamedVisualization ? (
                       <AnalyticsVisualization data={streamedVisualization} />
                     ) : null}
                   </div>
@@ -469,7 +564,7 @@ export function ChatView() {
               {isSending ? (
                 <div className="text-muted-foreground flex items-center gap-2 text-sm" role="status">
                   <Loader2 className="size-4 animate-spin" aria-hidden />
-                  Đang phân tích câu hỏi…
+                  {streamStatus || "Đang phân tích câu hỏi…"}
                 </div>
               ) : null}
               {sendError ? (

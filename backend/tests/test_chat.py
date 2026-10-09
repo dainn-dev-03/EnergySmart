@@ -277,7 +277,7 @@ def test_stream_reply_yields_chunks_and_persists_complete_answer(
                 [
                     SimpleNamespace(
                         function_call=SimpleNamespace(
-                            name="get_energy_summary",
+                            name="get_consumption_by_floor",
                             args={"from_date": "2026-10-01", "to_date": "2026-10-01"},
                         )
                     )
@@ -295,7 +295,7 @@ def test_stream_reply_yields_chunks_and_persists_complete_answer(
                     candidates=[
                         SimpleNamespace(
                             content=SimpleNamespace(
-                                parts=[SimpleNamespace(text="Đã ti")]
+                                parts=[SimpleNamespace(text="Tầng 2")]
                             )
                         )
                     ]
@@ -304,7 +304,7 @@ def test_stream_reply_yields_chunks_and_persists_complete_answer(
                     candidates=[
                         SimpleNamespace(
                             content=SimpleNamespace(
-                                parts=[SimpleNamespace(text="êu thụ 12,5 kWh.")]
+                                parts=[SimpleNamespace(text=" tiêu thụ nhiều nhất.")]
                             )
                         )
                     ]
@@ -333,11 +333,16 @@ def test_stream_reply_yields_chunks_and_persists_complete_answer(
         service,
         "_run_tool",
         lambda name, arguments: {
-            "from_date": "2026-10-01",
-            "to_date": "2026-10-01",
-            "total_kwh": 12.5,
-            "total_cost": 25000.0,
-            "days_in_range": 1,
+            "items": [
+                {
+                    "floor_id": 2,
+                    "floor_number": 2,
+                    "floor_name": "Tầng 2",
+                    "kwh": 12.5,
+                    "cost": 25000.0,
+                    "share_percent": 100.0,
+                }
+            ]
         },
     )
     monkeypatch.setattr(settings, "gemini_api_key", SecretStr("test-key"))
@@ -345,7 +350,7 @@ def test_stream_reply_yields_chunks_and_persists_complete_answer(
 
     chunks = service.stream_reply(
         None,
-        "Tháng này dùng bao nhiêu điện?",
+        "Tầng nào tiêu thụ điện nhiều nhất trong 30 ngày qua?",
         cast(Any, SimpleNamespace(id=42)),
     )
     assert persisted_turns == []
@@ -353,17 +358,32 @@ def test_stream_reply_yields_chunks_and_persists_complete_answer(
 
     events = list(chunks)
     answer_events = [event for event in events if event.event == "token"]
+    status_events = [event for event in events if event.event == "status"]
     visualization_event = next(event for event in events if event.event == "visualization")
     done_event = events[-1]
-    assert [event.content for event in answer_events] == ["Đã ti", "êu thụ 12,5 kWh."]
+    assert [event.content for event in answer_events] == [
+        "Tầng 2",
+        " tiêu thụ nhiều nhất.",
+    ]
+    assert [event.content for event in status_events] == [
+        "Đang xác định dữ liệu cần tra cứu…",
+        "Đang tra cứu mức tiêu thụ theo tầng…",
+        "Đang tổng hợp câu trả lời…",
+    ]
+    assert events[0] == status_events[0]
     assert all(event.event == "token" for event in answer_events)
     assert visualization_event.visualization == {
-        "summary": {
-            "from_date": "2026-10-01",
-            "to_date": "2026-10-01",
-            "total_kwh": 12.5,
-            "total_cost": 25000.0,
-            "days_in_range": 1,
+        "floors": {
+            "items": [
+                {
+                    "floor_id": 2,
+                    "floor_number": 2,
+                    "floor_name": "Tầng 2",
+                    "kwh": 12.5,
+                    "cost": 25000.0,
+                    "share_percent": 100.0,
+                }
+            ]
         }
     }
     assert done_event == ChatStreamEvent(
@@ -374,15 +394,20 @@ def test_stream_reply_yields_chunks_and_persists_complete_answer(
         (
             42,
             "507f1f77bcf86cd799439012",
-            "Tháng này dùng bao nhiêu điện?",
-            "Đã tiêu thụ 12,5 kWh.",
+            "Tầng nào tiêu thụ điện nhiều nhất trong 30 ngày qua?",
+            "Tầng 2 tiêu thụ nhiều nhất.",
             {
-                "summary": {
-                    "from_date": "2026-10-01",
-                    "to_date": "2026-10-01",
-                    "total_kwh": 12.5,
-                    "total_cost": 25000.0,
-                    "days_in_range": 1,
+                "floors": {
+                    "items": [
+                        {
+                            "floor_id": 2,
+                            "floor_number": 2,
+                            "floor_name": "Tầng 2",
+                            "kwh": 12.5,
+                            "cost": 25000.0,
+                            "share_percent": 100.0,
+                        }
+                    ]
                 }
             },
         )
@@ -391,7 +416,7 @@ def test_stream_reply_yields_chunks_and_persists_complete_answer(
     first_contents = cast(list[Any], client.models.requests[1]["contents"])
     tool_response = first_contents[-1]
     assert tool_response.role == "user"
-    assert tool_response.parts[0].function_response.name == "get_energy_summary"
+    assert tool_response.parts[0].function_response.name == "get_consumption_by_floor"
     assert client.closed
 
 
