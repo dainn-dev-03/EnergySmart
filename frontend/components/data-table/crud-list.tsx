@@ -14,6 +14,8 @@ interface CrudListProps<T extends { id: number }> {
   list: ListState
   columns: Column<T>[]
   emptyMessage: string
+  onRowClick?: (row: T) => void
+  fillHeight?: boolean
 }
 
 /** Table + pagination of a list page. While a new page loads, the old one stays dimmed. */
@@ -22,11 +24,13 @@ export function CrudList<T extends { id: number }>({
   list,
   columns,
   emptyMessage,
+  onRowClick,
+  fillHeight = false,
 }: CrudListProps<T>) {
   const { data, isLoading, isFetching } = query
   return (
-    <div className="space-y-4">
-      <div className={cn("transition-opacity", isFetching && !isLoading && "opacity-60")}>
+    <div className={cn("space-y-4", fillHeight && "flex min-h-0 flex-1 flex-col")}>
+      <div className={cn("transition-opacity", fillHeight && "min-h-0 flex-1", isFetching && !isLoading && "opacity-60")}>
         <DataTable
           columns={columns}
           rows={data?.data}
@@ -36,9 +40,13 @@ export function CrudList<T extends { id: number }>({
           sortBy={list.params.sort_by}
           sortOrder={list.params.sort_order}
           onSort={list.setSort}
+          onRowClick={onRowClick}
+          fillHeight={fillHeight}
         />
       </div>
-      <DataTablePagination pagination={data?.pagination} onPageChange={list.setPage} />
+      <div className={fillHeight ? "shrink-0" : undefined}>
+        <DataTablePagination pagination={data?.pagination} onPageChange={list.setPage} />
+      </div>
     </div>
   )
 }

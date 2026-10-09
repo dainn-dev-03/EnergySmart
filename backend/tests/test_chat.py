@@ -7,8 +7,11 @@ import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
 from pydantic import SecretStr, ValidationError
+from sqlalchemy.orm import Session
 
 from app.core.config import Settings, settings
+from app.core.enums import AlertSeverity
+from app.repositories.building_repository import BuildingRepository
 from app.repositories.chat_repository import ChatRepository
 from app.schemas.analytics import DailyPoint
 from app.schemas.chat import ChatMessage, ChatRequest
@@ -17,6 +20,7 @@ from app.services.chat_service import (
     ChatService,
     ChatStreamEvent,
 )
+from tests.factories import create_building
 
 
 def test_chat_endpoint_requires_authentication(client: TestClient) -> None:
@@ -90,7 +94,7 @@ def test_energy_summary_tool_uses_analytics_service(monkeypatch: pytest.MonkeyPa
     point = DailyPoint(date=date(2026, 10, 1), kwh=Decimal("12.500"), cost=Decimal("25000"))
     monkeypatch.setattr(service.analytics, "daily", lambda _: [point], raising=False)
 
-    result = service._run_tool("get_energy_summary", {})
+    result = service._run_tool("query_system_data", {"resource": "energy_summary"})
 
     assert result == {
         "from_date": "2026-10-01",
@@ -104,8 +108,49 @@ def test_energy_summary_tool_uses_analytics_service(monkeypatch: pytest.MonkeyPa
 def test_chat_tools_reject_unknown_arguments() -> None:
     service = _service_for_analytics()
 
-    with pytest.raises(ValueError, match="Unexpected tool arguments"):
-        service._run_tool("get_energy_summary", {"sql": "SELECT * FROM electricity_usages"})
+    with pytest.raises(ValueError, match="Tham số không hợp lệ"):
+        service._run_tool(
+            "query_system_data",
+            {"resource": "energy_summary", "sql": "SELECT * FROM electricity_usages"},
+        )
+
+
+def test_critical_alert_count_tool_counts_unresolved_system_alerts() -> None:
+    service = _service_for_analytics()
+    requested_severities: list[AlertSeverity] = []
+    service.alerts = SimpleNamespace(
+        count_unresolved=lambda *, building_id, severity: (
+            requested_severities.append(severity) or 3
+        )
+    )
+
+    result = service._run_tool("query_system_data", {"resource": "alert_count"})
+
+    assert result == {
+        "severity": "CRITICAL",
+        "is_resolved": False,
+        "count": 3,
+    }
+    assert requested_severities == [AlertSeverity.CRITICAL]
+    with pytest.raises(ValueError, match="Tham số không hợp lệ"):
+        service._run_tool(
+            "query_system_data",
+            {"resource": "alert_count", "building_id": 1, "sql": "SELECT 1"},
+        )
+
+
+def test_system_data_tool_lists_business_entities(
+    db_session: Session,
+) -> None:
+    building = create_building(db_session)
+    service = _service_for_analytics()
+    service.buildings = BuildingRepository(db_session)
+
+    result = service._run_tool("query_system_data", {"resource": "buildings"})
+
+    assert result["total"] == 1
+    assert result["items"][0]["id"] == building.id
+    assert result["items"][0]["code"] == building.code
 
 
 def test_agent_allows_general_knowledge_and_keeps_internal_data_scoped() -> None:
@@ -118,6 +163,9 @@ def test_agent_allows_general_knowledge_and_keeps_internal_data_scoped() -> None
     assert "hỏi lại ngắn gọn" in with_tools.system_instruction
     assert with_tools.tools
     assert without_tools.tools is None
+    declarations = with_tools.tools[0].function_declarations
+    assert [tool.name for tool in declarations] == ["query_system_data"]
+    assert "electricity_prices" in declarations[0].parameters.properties["resource"].enum
 
 
 def test_history_keeps_recent_complete_turns_for_long_conversations() -> None:
@@ -236,8 +284,12 @@ def test_chat_calls_analytics_tool_before_composing_answer(
             if len(self.requests) == 1:
                 part = SimpleNamespace(
                     function_call=SimpleNamespace(
-                        name="get_energy_summary",
-                        args={"from_date": "2026-10-01", "to_date": "2026-10-01"},
+                        name="query_system_data",
+                        args={
+                            "resource": "energy_summary",
+                            "from_date": "2026-10-01",
+                            "to_date": "2026-10-01",
+                        },
                     ),
                     text=None,
                 )
@@ -257,7 +309,7 @@ def test_chat_calls_analytics_tool_before_composing_answer(
     contents = cast(list[Any], models.requests[1]["contents"])
     tool_response = contents[-1]
     assert tool_response.role == "user"
-    assert tool_response.parts[0].function_response.name == "get_energy_summary"
+    assert tool_response.parts[0].function_response.name == "query_system_data"
 
 
 def test_stream_reply_yields_chunks_and_persists_complete_answer(
@@ -277,8 +329,12 @@ def test_stream_reply_yields_chunks_and_persists_complete_answer(
                 [
                     SimpleNamespace(
                         function_call=SimpleNamespace(
-                            name="get_consumption_by_floor",
-                            args={"from_date": "2026-10-01", "to_date": "2026-10-01"},
+                            name="query_system_data",
+                            args={
+                                "resource": "consumption_by_floor",
+                                "from_date": "2026-10-01",
+                                "to_date": "2026-10-01",
+                            },
                         )
                     )
                 ]
@@ -416,7 +472,7 @@ def test_stream_reply_yields_chunks_and_persists_complete_answer(
     first_contents = cast(list[Any], client.models.requests[1]["contents"])
     tool_response = first_contents[-1]
     assert tool_response.role == "user"
-    assert tool_response.parts[0].function_response.name == "get_consumption_by_floor"
+    assert tool_response.parts[0].function_response.name == "query_system_data"
     assert client.closed
 
 

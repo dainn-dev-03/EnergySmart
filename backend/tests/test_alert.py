@@ -6,9 +6,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.enums import AlertSeverity
+from app.core.enums import AlertSeverity, AlertType
 from app.core.exceptions import InvalidInputError
-from app.models import Alert
+from app.models import Alert, AuditLog
 from app.services.alert_service import AlertService, classify_ratio, evaluate_day
 from tests.analytics_fixtures import NOW, TwoFloors, add_usage, build_two_floors, local
 
@@ -110,10 +110,55 @@ def test_list_filter_and_resolve_alerts(
     assert open_alerts["pagination"]["total"] == 0
 
 
-def test_detect_endpoint(client: TestClient, admin_headers: dict[str, str]) -> None:
+def test_count_unresolved_alerts_filters_by_severity(db_session: Session) -> None:
+    data = build_two_floors(db_session)
+    db_session.add_all(
+        [
+            Alert(
+                meter_id=data.meter_a.id,
+                alert_type=AlertType.HIGH_CONSUMPTION,
+                severity=AlertSeverity.CRITICAL,
+                message="Critical open",
+                usage_date=date(2025, 6, 1),
+                is_resolved=False,
+            ),
+            Alert(
+                meter_id=data.meter_a.id,
+                alert_type=AlertType.HIGH_CONSUMPTION,
+                severity=AlertSeverity.WARNING,
+                message="Warning open",
+                usage_date=date(2025, 6, 2),
+                is_resolved=False,
+            ),
+            Alert(
+                meter_id=data.meter_a.id,
+                alert_type=AlertType.HIGH_CONSUMPTION,
+                severity=AlertSeverity.CRITICAL,
+                message="Critical resolved",
+                usage_date=date(2025, 6, 3),
+                is_resolved=True,
+            ),
+        ]
+    )
+
+    assert _service(db_session).alerts.count_unresolved(
+        severity=AlertSeverity.CRITICAL
+    ) == 1
+
+
+def test_detect_endpoint(
+    client: TestClient, db_session: Session, admin_headers: dict[str, str]
+) -> None:
     response = client.post(f"{URL}/detect", params={"date": "2025-01-15"}, headers=admin_headers)
     future = client.post(f"{URL}/detect", params={"date": "2999-01-01"}, headers=admin_headers)
 
     assert response.status_code == 200
     assert response.json()["data"]["created_alerts"] == 0
     assert future.status_code == 422
+    log = db_session.scalar(select(AuditLog).where(AuditLog.action == "DETECT_ALERTS"))
+    assert log is not None
+    assert log.changes == {
+        "date": [None, "2025-01-15"],
+        "evaluated_meters": [None, 0],
+        "created_alerts": [None, 0],
+    }

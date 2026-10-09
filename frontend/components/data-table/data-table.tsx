@@ -34,6 +34,8 @@ interface DataTableProps<T> {
   sortBy?: string
   sortOrder?: SortOrder
   onSort?: (sortKey: string) => void
+  onRowClick?: (row: T) => void
+  fillHeight?: boolean
 }
 
 export function DataTable<T>({
@@ -45,10 +47,12 @@ export function DataTable<T>({
   sortBy,
   sortOrder,
   onSort,
+  onRowClick,
+  fillHeight = false,
 }: DataTableProps<T>) {
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <Table>
+    <div className={cn("overflow-hidden rounded-lg border", fillHeight && "flex h-full min-h-0 flex-col")}>
+      <Table containerClassName={fillHeight ? "h-full min-h-0" : undefined}>
         <TableHeader className="bg-muted/50">
           <TableRow>
             {columns.map((column) => (
@@ -80,7 +84,23 @@ export function DataTable<T>({
             ))
           ) : rows && rows.length > 0 ? (
             rows.map((row) => (
-              <TableRow key={rowKey(row)}>
+              <TableRow
+                key={rowKey(row)}
+                className={onRowClick ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                aria-label={onRowClick ? "Open row details" : undefined}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                onKeyDown={
+                  onRowClick
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault()
+                          onRowClick(row)
+                        }
+                      }
+                    : undefined
+                }
+              >
                 {columns.map((column) => (
                   <TableCell key={column.key} className={column.className}>
                     {column.cell(row)}

@@ -46,11 +46,18 @@ class AlertRepository(BaseRepository[Alert]):
             filters.append(Alert.usage_date <= params.to_date)
         return self._list(params, filters)
 
-    def count_unresolved(self, building_id: int | None = None) -> int:
-        return self._count(
+    def count_unresolved(
+        self,
+        building_id: int | None = None,
+        severity: AlertSeverity | None = None,
+    ) -> int:
+        conditions = [
             Alert.is_resolved.is_(False),
             *meter_id_scope(Alert.meter_id, building_id=building_id),
-        )
+        ]
+        if severity is not None:
+            conditions.append(Alert.severity == severity)
+        return self._count(*conditions)
 
     def insert_new(self, rows: Sequence[Mapping[str, Any]]) -> Sequence[AlertSeverity]:
         """Insert alerts, silently skipping (meter, type, day) combinations that already exist.

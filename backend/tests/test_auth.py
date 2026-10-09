@@ -2,6 +2,7 @@ from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -9,6 +10,7 @@ from app.core.dependencies import require_roles
 from app.core.enums import UserRole
 from app.core.exceptions import ForbiddenError
 from app.core.security import create_access_token, decode_access_token, verify_password
+from app.models import AuditLog
 from tests.factories import DEFAULT_PASSWORD, auth_headers, create_user
 
 LOGIN_URL = "/api/v1/auth/login"
@@ -30,6 +32,9 @@ def test_login_returns_token_and_user(client: TestClient, db_session: Session) -
     assert data["user"]["role"] == "ADMIN"
     assert "password_hash" not in data["user"]
     assert decode_access_token(data["access_token"]).user_id == user.id
+    login_log = db_session.scalar(select(AuditLog).where(AuditLog.action == "LOGIN"))
+    assert login_log is not None
+    assert login_log.user_id == user.id
 
 
 def test_login_username_is_case_insensitive(client: TestClient, db_session: Session) -> None:
@@ -38,6 +43,19 @@ def test_login_username_is_case_insensitive(client: TestClient, db_session: Sess
     response = client.post(LOGIN_URL, json={"username": " Admin ", "password": DEFAULT_PASSWORD})
 
     assert response.status_code == 200
+
+
+def test_logout_records_audit_event(client: TestClient, db_session: Session) -> None:
+    user = create_user(db_session)
+
+    response = client.post("/api/v1/auth/logout", headers=auth_headers(user))
+
+    assert response.status_code == 200
+    log = db_session.scalar(select(AuditLog).where(AuditLog.action == "LOGOUT"))
+    assert log is not None
+    assert log.user_id == user.id
+    assert log.entity_type == "users"
+    assert log.entity_label == user.username
 
 
 @pytest.mark.parametrize("username", ["admin", "unknown"])

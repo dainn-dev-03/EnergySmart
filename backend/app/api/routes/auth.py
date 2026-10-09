@@ -33,11 +33,38 @@ def read_current_user(current_user: CurrentUser) -> ApiResponse[UserRead]:
     return ApiResponse(data=UserRead.model_validate(current_user))
 
 
+@router.post("/logout", response_model=ApiResponse[None], summary="Ghi nhận đăng xuất")
+def logout(current_user: CurrentUser, db: DbSession) -> ApiResponse[None]:
+    db.add(
+        AuditLog(
+            user_id=current_user.id,
+            action="LOGOUT",
+            entity_type="users",
+            entity_id=current_user.id,
+            entity_label=current_user.username,
+            changes=None,
+        )
+    )
+    db.commit()
+    return ApiResponse(message="Đã ghi nhận đăng xuất", data=None)
+
+
 @router.put("/me/password", response_model=ApiResponse[None])
-def change_password(payload: PasswordChange, current_user: CurrentUser, db: DbSession) -> ApiResponse[None]:
+def change_password(
+    payload: PasswordChange, current_user: CurrentUser, db: DbSession
+) -> ApiResponse[None]:
     if not verify_password(payload.current_password, current_user.password_hash):
         raise InvalidInputError.for_field("current_password", "Mật khẩu hiện tại không đúng")
     current_user.password_hash = hash_password(payload.new_password)
-    db.add(AuditLog(user_id=current_user.id, action="CHANGE_PASSWORD", entity_type="users", entity_id=current_user.id, entity_label=current_user.username, changes=None))
+    db.add(
+        AuditLog(
+            user_id=current_user.id,
+            action="CHANGE_PASSWORD",
+            entity_type="users",
+            entity_id=current_user.id,
+            entity_label=current_user.username,
+            changes=None,
+        )
+    )
     db.commit()
     return ApiResponse(message="Đổi mật khẩu thành công", data=None)

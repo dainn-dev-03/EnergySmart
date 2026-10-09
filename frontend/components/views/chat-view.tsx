@@ -13,7 +13,7 @@ import {
 import ReactMarkdown from "react-markdown"
 import rehypeKatex from "rehype-katex"
 import remarkMath from "remark-math"
-import { memo, useEffect, useRef, useState } from "react"
+import { memo, useEffect, useRef, useState, useSyncExternalStore } from "react"
 import type { FormEvent } from "react"
 
 import { PageHeader } from "@/components/layout/page-header"
@@ -54,6 +54,28 @@ interface Message {
 interface ConversationDetail extends Conversation {
   messages: Message[]
 }
+
+function subscribeToConversationUrl(onChange: () => void) {
+  window.addEventListener("popstate", onChange)
+  window.addEventListener("conversation-url-change", onChange)
+  return () => {
+    window.removeEventListener("popstate", onChange)
+    window.removeEventListener("conversation-url-change", onChange)
+  }
+}
+
+function getConversationIdFromUrl() {
+  return new URLSearchParams(window.location.search).get("conversation_id")
+}
+
+function updateConversationUrl(id?: string) {
+  const url = new URL(window.location.href)
+  if (id) url.searchParams.set("conversation_id", id)
+  else url.searchParams.delete("conversation_id")
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`)
+  window.dispatchEvent(new Event("conversation-url-change"))
+}
+
 const SUGGESTIONS = [
   "Tháng này tiêu thụ bao nhiêu kWh?",
   "So sánh tiêu thụ tháng này với tháng trước",
@@ -212,6 +234,11 @@ export function ChatView() {
   const queryClient = useQueryClient()
   const [conversationId, setConversationId] = useState<string>()
   const [isDraft, setIsDraft] = useState(false)
+  const urlConversationId = useSyncExternalStore(
+    subscribeToConversationUrl,
+    getConversationIdFromUrl,
+    () => null,
+  )
   const [input, setInput] = useState("")
   const [pendingQuestion, setPendingQuestion] = useState<string>()
   const [streamedAnswer, setStreamedAnswer] = useState("")
@@ -268,7 +295,26 @@ export function ChatView() {
     queryKey: ["chat", "conversations"],
     queryFn: () => apiGet<Conversation[]>("/chat/conversations"),
   })
-  const activeConversationId = isDraft ? undefined : conversationId ?? conversations.data?.[0]?.id
+
+  useEffect(() => {
+    if (
+      urlConversationId &&
+      conversations.data &&
+      !conversations.data.some((item) => item.id === urlConversationId)
+    ) {
+      updateConversationUrl()
+    }
+  }, [conversations.data, urlConversationId])
+
+  const urlSelectedConversationId = conversations.data?.find(
+    (item) => item.id === urlConversationId,
+  )?.id
+  const activeConversationId = isDraft
+    ? undefined
+    : conversationId ??
+      (urlConversationId && !conversations.data
+        ? undefined
+        : urlSelectedConversationId ?? conversations.data?.[0]?.id)
   const conversation = useQuery({
     queryKey: ["chat", "conversation", activeConversationId],
     queryFn: () => apiGet<ConversationDetail>(`/chat/conversations/${activeConversationId}`),
@@ -291,6 +337,7 @@ export function ChatView() {
     },
     onSuccess: async ({ conversation_id }) => {
       setConversationId(conversation_id)
+      updateConversationUrl(conversation_id)
       setIsDraft(false)
       setStreamComplete(true)
       setSendError(undefined)
@@ -317,7 +364,10 @@ export function ChatView() {
       setConversationId(
         deletedId === activeConversationId ? remaining[0]?.id : conversationId,
       )
-      if (deletedId === activeConversationId) setIsDraft(false)
+      if (deletedId === activeConversationId) {
+        setIsDraft(false)
+        updateConversationUrl(remaining[0]?.id)
+      }
       await queryClient.invalidateQueries({ queryKey: ["chat", "conversations"] })
       queryClient.removeQueries({ queryKey: ["chat", "conversation", deletedId] })
     },
@@ -375,6 +425,7 @@ export function ChatView() {
   function startNewConversation() {
     clearPendingStreamChunks()
     setConversationId(undefined)
+    updateConversationUrl()
     setIsDraft(true)
     setPendingQuestion(undefined)
     setStreamedAnswer("")
@@ -428,6 +479,7 @@ export function ChatView() {
                   onClick={() => {
                     clearPendingStreamChunks()
                     setConversationId(item.id)
+                    updateConversationUrl(item.id)
                     setIsDraft(false)
                     setPendingQuestion(undefined)
                     setStreamedAnswer("")

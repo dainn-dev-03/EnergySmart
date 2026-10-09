@@ -107,14 +107,38 @@ class AlertService:
         alert.is_resolved = True
         alert.resolved_at = self._now()
         alert.resolved_by_id = actor.id
-        self.db.add(AuditLog(user_id=actor.id, action="RESOLVE", entity_type="alerts", entity_id=alert.id, entity_label=alert.message, changes={"is_resolved": [False, True]}))
+        self.        db.add(
+            AuditLog(
+                user_id=actor.id,
+                action="RESOLVE",
+                entity_type="alerts",
+                entity_id=alert.id,
+                entity_label=alert.message,
+                changes={"is_resolved": [False, True]},
+            )
+        )
         self.db.commit()
         self.db.refresh(alert)
         return alert
 
-    def detect(self, day: date | None) -> DetectionResult:
+    def detect(self, day: date | None, actor: User | None = None) -> DetectionResult:
         """Run detection for one complete day (default: yesterday) and commit."""
-        result = self.detect_range(day or self._yesterday(), day or self._yesterday())
+        detection_day = day or self._yesterday()
+        result = self.detect_range(detection_day, detection_day)
+        if actor is not None:
+            self.db.add(
+                AuditLog(
+                    user_id=actor.id,
+                    action="DETECT_ALERTS",
+                    entity_type="alerts",
+                    entity_label=f"Phát hiện cảnh báo ngày {detection_day.isoformat()}",
+                    changes={
+                        "date": [None, detection_day.isoformat()],
+                        "evaluated_meters": [None, result.evaluated_meters],
+                        "created_alerts": [None, result.created_alerts],
+                    },
+                )
+            )
         self.db.commit()
         return result
 

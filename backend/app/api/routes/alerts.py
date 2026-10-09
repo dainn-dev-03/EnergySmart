@@ -37,7 +37,9 @@ def get_alert(alert_id: int, service: ServiceDep) -> ApiResponse[AlertRead]:
     dependencies=WRITE_ACCESS,
     summary="Đánh dấu cảnh báo đã xử lý",
 )
-def resolve_alert(alert_id: int, service: ServiceDep, current_user: CurrentUser) -> ApiResponse[AlertRead]:
+def resolve_alert(
+    alert_id: int, service: ServiceDep, current_user: CurrentUser
+) -> ApiResponse[AlertRead]:
     alert = service.resolve(alert_id, current_user)
     return ApiResponse(message="Đã xử lý cảnh báo", data=AlertRead.model_validate(alert))
 
@@ -50,7 +52,8 @@ def resolve_alert(alert_id: int, service: ServiceDep, current_user: CurrentUser)
 )
 def detect_alerts(
     service: ServiceDep,
+    current_user: CurrentUser,
     day: Annotated[date | None, Query(alias="date", description="Ngày cần kiểm tra")] = None,
 ) -> ApiResponse[DetectionResult]:
-    result = service.detect(day)
+    result = service.detect(day, current_user)
     return ApiResponse(message=f"Đã tạo {result.created_alerts} cảnh báo mới", data=result)

@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ROLE_LABELS, useCurrentUser } from "@/hooks/use-current-user"
 import { logout } from "@/lib/auth"
-import { apiPut } from "@/lib/api"
+import { apiPost, apiPut } from "@/lib/api"
 
 function initials(name: string): string {
   const words = name.trim().split(/\s+/)
@@ -37,6 +37,16 @@ export function UserMenu() {
   if (!user) return null
 
   const displayName = user.full_name ?? user.username
+  const handleLogout = async () => {
+    try {
+      await apiPost("/auth/logout")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Lỗi không xác định"
+      toast.error(`Đã đăng xuất trên thiết bị này nhưng không thể ghi nhận sự kiện: ${message}`)
+    } finally {
+      logout()
+    }
+  }
 
   return (
     <>
@@ -63,7 +73,7 @@ export function UserMenu() {
           <KeyRound />
           Đổi mật khẩu
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={logout}>
+        <DropdownMenuItem onSelect={handleLogout}>
           <LogOut />
           Đăng xuất
         </DropdownMenuItem>
