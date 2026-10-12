@@ -53,7 +53,7 @@ export function DataTable<T>({
   return (
     <div className={cn("overflow-hidden rounded-lg border", fillHeight && "flex h-full min-h-0 flex-col")}>
       <Table containerClassName={fillHeight ? "h-full min-h-0" : undefined}>
-        <TableHeader className="bg-muted/50">
+        <TableHeader>
           <TableRow>
             {columns.map((column) => (
               <TableHead key={column.key} className={column.className}>

@@ -1,11 +1,12 @@
 """Consumption reports (JSON and CSV export) grouped by floor, room or meter."""
 
-import csv
-import io
+from io import BytesIO
 from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
 
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from sqlalchemy.orm import Session
 
 from app.core.timezone import local_day_end_exclusive, local_day_start, local_now, month_start
@@ -13,8 +14,7 @@ from app.repositories.analytics_repository import ZERO, AnalyticsRepository
 from app.schemas.report import ConsumptionReport, ConsumptionReportParams, ReportRow
 from app.services.analytics_service import scope_of, share_percent
 
-CSV_HEADERS = ("Mã", "Tên", "Thuộc", "Điện năng (kWh)", "Chi phí (VND)", "Tỷ trọng (%)")
-UTF8_BOM = "\ufeff"
+EXCEL_HEADERS = ("Mã", "Tên", "Thuộc", "Điện năng (kWh)", "Chi phí (VND)", "Tỷ trọng (%)")
 GROUP_LABELS = {"floor": "tang", "room": "phong", "meter": "cong-to"}
 
 
@@ -69,28 +69,68 @@ class ReportService:
             ],
         )
 
-    def consumption_csv(self, params: ConsumptionReportParams) -> tuple[str, str]:
-        """(filename, CSV text). The UTF-8 BOM lets Excel display Vietnamese correctly."""
+    def consumption_excel(self, params: ConsumptionReportParams) -> tuple[str, bytes]:
+        """Return a formatted Excel workbook for the requested consumption report."""
         report = self.consumption(params)
-        buffer = io.StringIO()
-        writer = csv.writer(buffer, lineterminator="\r\n")
-        writer.writerow(CSV_HEADERS)
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = "Báo cáo điện năng"
+        worksheet.append(EXCEL_HEADERS)
+
+        header_fill = PatternFill(fill_type="solid", fgColor="1565C0")
+        header_font = Font(color="FFFFFF", bold=True)
+        header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        for cell in worksheet[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
+        worksheet.row_dimensions[1].height = 26
+
         for row in report.rows:
-            writer.writerow(
-                (
-                    row.code,
-                    row.name,
-                    row.parent,
-                    f"{row.kwh:.3f}",
-                    f"{row.cost:.0f}",
-                    row.share_percent,
-                )
+            worksheet.append(
+                (row.code, row.name, row.parent, row.kwh, row.cost, row.share_percent / 100)
             )
-        writer.writerow(
-            ("", "Tổng cộng", "", f"{report.total_kwh:.3f}", f"{report.total_cost:.0f}", 100)
-        )
+
+        total_row = worksheet.max_row + 1
+        worksheet.append(("", "Tổng cộng", "", report.total_kwh, report.total_cost, 1))
+        for cell in worksheet[total_row]:
+            cell.font = Font(bold=True)
+
+        grid_side = Side(style="thin", color="D9E1F2")
+        grid_border = Border(left=grid_side, right=grid_side, top=grid_side, bottom=grid_side)
+        for row_index in range(1, total_row + 1):
+            for column_index in range(1, 7):
+                worksheet.cell(row_index, column_index).border = grid_border
+        total_top = Side(style="thin", color="1565C0")
+        for cell in worksheet[total_row]:
+            cell.border = Border(left=grid_side, right=grid_side, top=total_top, bottom=grid_side)
+
+        for row_index in range(2, total_row + 1):
+            for column_index in range(1, 7):
+                worksheet.cell(row_index, column_index).alignment = Alignment(
+                    horizontal="right" if column_index >= 4 else "left",
+                    vertical="center",
+                )
+            worksheet.cell(row_index, 4).number_format = "#,##0.000"
+            worksheet.cell(row_index, 5).number_format = "#,##0"
+            worksheet.cell(row_index, 6).number_format = "0.0%"
+
+        for column, width in {
+            "A": 16,
+            "B": 32,
+            "C": 22,
+            "D": 20,
+            "E": 20,
+            "F": 16,
+        }.items():
+            worksheet.column_dimensions[column].width = width
+        worksheet.freeze_panes = "A2"
+        worksheet.auto_filter.ref = f"A1:F{total_row - 1}"
+
+        buffer = BytesIO()
+        workbook.save(buffer)
         filename = (
             f"bao-cao-dien-nang_{GROUP_LABELS[report.group_by]}_"
-            f"{report.from_date:%Y%m%d}-{report.to_date:%Y%m%d}.csv"
+            f"{report.from_date:%Y%m%d}-{report.to_date:%Y%m%d}.xlsx"
         )
-        return filename, UTF8_BOM + buffer.getvalue()
+        return filename, buffer.getvalue()

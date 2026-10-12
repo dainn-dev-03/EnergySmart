@@ -1,7 +1,9 @@
+from io import BytesIO
 from datetime import date
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from app.schemas.report import ConsumptionReportParams
@@ -35,7 +37,7 @@ def test_report_defaults_to_current_month_and_groups(db_session: Session) -> Non
     assert [code for code, *_ in _report(db_session, "meter")] == ["MB", "MA"]
 
 
-def test_csv_export(
+def test_excel_export(
     client: TestClient, db_session: Session, viewer_headers: dict[str, str]
 ) -> None:
     data = build_two_floors(db_session)
@@ -48,16 +50,32 @@ def test_csv_export(
     )
 
     assert response.status_code == 200
-    assert response.headers["content-type"].startswith("text/csv")
-    assert response.headers["content-disposition"] == (
-        'attachment; filename="bao-cao-dien-nang_phong_20250601-20250630.csv"'
+    assert response.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    text = response.content.decode("utf-8")
-    assert text.startswith(chr(0xFEFF))
-    lines = text.lstrip(chr(0xFEFF)).splitlines()
-    assert lines[0] == "Mã,Tên,Thuộc,Điện năng (kWh),Chi phí (VND),Tỷ trọng (%)"
-    assert lines[1] == "R0101,Phòng A,Tầng 1,1.500,3750,100.0"
-    assert lines[-1] == ",Tổng cộng,,1.500,3750,100"
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="bao-cao-dien-nang_phong_20250601-20250630.xlsx"'
+    )
+    worksheet = load_workbook(BytesIO(response.content)).active
+    assert [cell.value for cell in worksheet[1]] == [
+        "Mã",
+        "Tên",
+        "Thuộc",
+        "Điện năng (kWh)",
+        "Chi phí (VND)",
+        "Tỷ trọng (%)",
+    ]
+    assert [cell.value for cell in worksheet[2]] == ["R0101", "Phòng A", "Tầng 1", 1.5, 3750, 1]
+    assert [cell.value for cell in worksheet[3]] == [None, "Tổng cộng", None, 1.5, 3750, 1]
+    assert worksheet["A1"].fill.fgColor.rgb.endswith("1565C0")
+    assert worksheet["A1"].font.color.rgb.endswith("FFFFFF")
+    assert worksheet["A1"].alignment.horizontal == "center"
+    assert worksheet["A3"].fill.fill_type is None
+    assert worksheet["A1"].border.left.style == "thin"
+    assert worksheet["A2"].border.right.style == "thin"
+    assert worksheet["A3"].border.bottom.style == "thin"
+    assert worksheet["D2"].number_format == "#,##0.000"
+    assert worksheet.column_dimensions["B"].width == 32
 
 
 def test_report_endpoint_rejects_unknown_group(

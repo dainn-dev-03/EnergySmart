@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 
 import { CrudList, Muted } from "@/components/data-table/crud-list"
 import { DateRangeFilter } from "@/components/data-table/date-range-filter"
+import { FilterBar } from "@/components/data-table/filter-bar"
 import { FilterSelect } from "@/components/data-table/filter-select"
 import type { Column } from "@/components/data-table/data-table"
 import type { Option } from "@/components/forms/form-fields"
@@ -63,7 +64,7 @@ export function AuditLogsView() {
   if (!isAdmin) return null
   return <div className="flex min-h-0 flex-1 flex-col gap-4">
     <PageHeader title="Nhật ký hoạt động" description="Lịch sử đăng nhập, thay đổi dữ liệu và thao tác quan trọng. Chọn một dòng để xem chi tiết." />
-    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+    <FilterBar>
       <FilterSelect
         label="Thao tác"
         value={list.params.action as string | undefined}
@@ -78,10 +79,10 @@ export function AuditLogsView() {
           list.setFilter("to_date", to)
         }}
       />
-    </div>
+    </FilterBar>
     <CrudList query={query} list={list} columns={columns} emptyMessage="Chưa có hoạt động nào" onRowClick={setSelectedLog} fillHeight />
     <Dialog open={selectedLog !== null} onOpenChange={(open) => !open && setSelectedLog(null)}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-2rem)] max-h-[85vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Chi tiết thao tác</DialogTitle>
         </DialogHeader>
@@ -102,7 +103,7 @@ export function AuditLogsView() {
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">Dữ liệu</dt>
-                <dd className="mt-1 break-words">{selectedLog.entity_label} ({selectedLog.entity_type}{selectedLog.entity_id ? ` #${selectedLog.entity_id}` : ""})</dd>
+                <dd className="mt-1 wrap-break-word">{selectedLog.entity_label} ({selectedLog.entity_type}{selectedLog.entity_id ? ` #${selectedLog.entity_id}` : ""})</dd>
               </div>
               <div>
                 <dt className="text-sm text-muted-foreground">Địa chỉ IP</dt>
@@ -117,14 +118,14 @@ export function AuditLogsView() {
                     const values = Array.isArray(change) ? change : [undefined, change]
                     return (
                       <div className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]" key={field}>
-                        <div className="font-medium break-words">{field}</div>
+                        <div className="font-medium wrap-break-word">{field}</div>
                         <div className="min-w-0">
                           <div className="mb-1 text-xs text-muted-foreground">Trước</div>
-                          <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs">{formatValue(values[0])}</pre>
+                          <pre className="overflow-x-auto whitespace-pre-wrap wrap-break-word text-xs">{formatValue(values[0])}</pre>
                         </div>
                         <div className="min-w-0">
                           <div className="mb-1 text-xs text-muted-foreground">Sau</div>
-                          <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs">{formatValue(values[1])}</pre>
+                          <pre className="overflow-x-auto whitespace-pre-wrap wrap-break-word text-xs">{formatValue(values[1])}</pre>
                         </div>
                       </div>
                     )

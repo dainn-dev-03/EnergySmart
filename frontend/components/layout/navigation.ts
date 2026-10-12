@@ -74,7 +74,7 @@ export const NAVIGATION: NavGroup[] = [
         icon: BellRing,
         description: "Tiêu thụ bất thường cần xử lý",
       },
-      { title: "Báo cáo", href: "/reports", icon: FileText, description: "Báo cáo và xuất CSV" },
+      { title: "Báo cáo", href: "/reports", icon: FileText, description: "Báo cáo và xuất Excel" },
     ],
   },
   {
@@ -99,5 +99,11 @@ export const NAVIGATION: NavGroup[] = [
 export function findNavItem(pathname: string): NavItem | undefined {
   return NAVIGATION.flatMap((group) => group.items).find(
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+  )
+}
+
+export function findNavGroup(pathname: string): NavGroup | undefined {
+  return NAVIGATION.find((group) =>
+    group.items.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)),
   )
 }

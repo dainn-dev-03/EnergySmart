@@ -1,6 +1,6 @@
 # EnergySmart
 
-Website quản lý và phân tích tiêu thụ điện năng cho tòa nhà: quản lý tòa nhà, tầng, phòng và công tơ; dữ liệu điện theo giờ; dashboard; phân tích; cảnh báo tiêu thụ bất thường; báo cáo xuất CSV.
+Website quản lý và phân tích tiêu thụ điện năng cho tòa nhà: quản lý tòa nhà, tầng, phòng và công tơ; dữ liệu điện theo giờ; dashboard; phân tích; cảnh báo tiêu thụ bất thường; báo cáo xuất Excel.
 
 > Phiên bản BASE (đồ án). Chưa có Machine Learning/dự báo, chưa kết nối công tơ thật hay IoT/MQTT. Trợ lý hỏi đáp dùng Gemini; dữ liệu điện được **giả lập** bằng lệnh seed.
 
@@ -35,7 +35,7 @@ Mô hình dữ liệu: **Tòa nhà → Tầng → Phòng → Công tơ → Dữ 
 | Dashboard | Tiêu thụ hôm nay, tháng này, chi phí, công tơ hoạt động, số cảnh báo; biểu đồ theo ngày, tháng, tầng và chi phí; tình trạng từng tầng |
 | Phân tích | So sánh ngày/tuần/tháng với kỳ trước (cùng khoảng thời gian đã trôi qua), biểu đồ tải theo giờ (giờ cao điểm), tiêu thụ theo tầng/phòng |
 | Cảnh báo | Ngày tiêu thụ ≥ 1,2 / 1,5 / 2 lần mức trung bình 14 ngày cùng loại → INFO / WARNING / CRITICAL; đánh dấu đã xử lý |
-| Báo cáo | Gom theo tầng, phòng hoặc công tơ trong một khoảng ngày; xuất CSV mở được bằng Excel |
+| Báo cáo | Gom theo tầng, phòng hoặc công tơ trong một khoảng ngày; xuất workbook Excel có định dạng |
 | Trợ lý AI | Hỗ trợ kiến thức phổ thông và dữ liệu EnergySmart; dùng tool analytics allowlist cho số liệu nội bộ, hỏi lại khi thiếu thông tin; stream câu trả lời và lưu lịch sử theo user trong MongoDB |
 
 Toàn bộ giao diện bằng tiếng Việt; số, tiền và ngày định dạng theo vi-VN; thời gian tính theo giờ Việt Nam.
@@ -291,7 +291,7 @@ Tài liệu tương tác đầy đủ có tại **Swagger** (http://localhost:80
 | Dashboard | `GET /dashboard/summary`, `/daily`, `/monthly`, `/by-floor`, `/by-room`, `/cost` |
 | Phân tích | `GET /analytics/daily`, `/monthly`, `/hourly`, `/by-floor`, `/by-room`, `/comparison` |
 | Cảnh báo | `GET /alerts` · `GET /alerts/{id}` · `POST /alerts/{id}/resolve` · `POST /alerts/detect?date=` |
-| Báo cáo | `GET /reports/consumption?group_by=floor\|room\|meter` · `GET /reports/consumption/export` (CSV) |
+| Báo cáo | `GET /reports/consumption?group_by=floor\|room\|meter` · `GET /reports/consumption/export` (Excel XLSX) |
 
 **Tham số danh sách:**
 - Chung cho mọi danh sách: `page`, `page_size` (≤ 100), `search`, `sort_by`, `sort_order` (`asc`/`desc`).
@@ -331,7 +331,7 @@ ruff check . ; ruff format --check . ; mypy app tests ; pytest
 npm run lint ; npm run typecheck ; npm run build
 ```
 
-- **Backend có 122 test**, chạy trên DB `POSTGRES_TEST_DB` (khác DB chính), mỗi test được rollback. Các test bao phủ: auth, CRUD của 6 resource, quy tắc xóa và constraint, dashboard, analytics, cảnh báo, báo cáo/CSV, chatbot, bộ mô phỏng và lệnh seed.
+- **Backend có 122 test**, chạy trên DB `POSTGRES_TEST_DB` (khác DB chính), mỗi test được rollback. Các test bao phủ: auth, CRUD của 6 resource, quy tắc xóa và constraint, dashboard, analytics, cảnh báo, báo cáo/Excel, chatbot, bộ mô phỏng và lệnh seed.
 - Pytest **từ chối chạy** nếu `POSTGRES_TEST_DB` trùng với DB chính, để không xóa nhầm dữ liệu.
 
 ## Kịch bản demo
@@ -347,7 +347,7 @@ npm run lint ; npm run typecheck ; npm run build
 5. **Dữ liệu điện:** lọc theo công tơ M003 và hôm qua để thấy các giờ tăng vọt; mở tab **Bảng giá điện**.
 6. **Phân tích:** biểu đồ tải theo giờ (2 đỉnh 9–11h và 14–15h; cuối tuần thấp); so sánh ngày, tuần, tháng.
 7. **Cảnh báo:** đánh dấu một cảnh báo là *Đã xử lý*, rồi quay lại Dashboard để thấy số cảnh báo giảm.
-8. **Báo cáo:** chuyển *Theo phòng* rồi bấm **Xuất CSV**.
+8. **Báo cáo:** chuyển *Theo phòng* rồi bấm **Xuất Excel**.
 9. Đăng xuất, đăng nhập bằng `viewer` / `demo123`: các nút thêm, sửa, xóa đều bị ẩn.
 
 ## Xử lý sự cố

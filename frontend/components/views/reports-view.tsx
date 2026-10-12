@@ -6,12 +6,14 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import { DateRangeFilter } from "@/components/data-table/date-range-filter"
-import { FilterSelect } from "@/components/data-table/filter-select"
+import { FilterBar } from "@/components/data-table/filter-bar"
+import { FilterSelect, toNumber } from "@/components/data-table/filter-select"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useBuildingOptions } from "@/hooks/use-options"
 import {
   Table,
   TableBody,
@@ -38,8 +40,10 @@ export function ReportsView() {
     from: monthStart(today),
     to: today,
   })
+  const [buildingId, setBuildingId] = useState<number | undefined>()
   const [groupBy, setGroupBy] = useState<ReportGroup>("floor")
-  const params = { from_date: range.from, to_date: range.to, group_by: groupBy }
+  const buildings = useBuildingOptions()
+  const params = { from_date: range.from, to_date: range.to, group_by: groupBy, building_id: buildingId }
   const group = GROUPS.find((item) => item.value === groupBy) ?? GROUPS[0]
 
   const report = useQuery({
@@ -56,23 +60,29 @@ export function ReportsView() {
     <div className="space-y-6">
       <PageHeader
         title="Báo cáo"
-        description="Báo cáo tiêu thụ điện và chi phí, xuất file CSV mở được bằng Excel"
+        description="Báo cáo tiêu thụ điện và chi phí, xuất file Excel đã định dạng"
         actions={
           <Button onClick={() => exportCsv.mutate()} disabled={exportCsv.isPending || !data}>
             {exportCsv.isPending ? <Loader2 className="animate-spin" /> : <Download />}
-            Xuất CSV
+            Xuất Excel
           </Button>
         }
       />
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <FilterBar>
         <DateRangeFilter from={range.from} to={range.to} onChange={setRange} />
+        <FilterSelect
+          label="Tòa nhà"
+          value={buildingId}
+          options={buildings}
+          onChange={(value) => setBuildingId(toNumber(value))}
+        />
         <FilterSelect
           label="Gom nhóm"
           value={groupBy}
           options={GROUPS.map(({ value, label }) => ({ value, label }))}
           onChange={(value) => setGroupBy((value as ReportGroup | undefined) ?? "floor")}
         />
-      </div>
+      </FilterBar>
 
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard

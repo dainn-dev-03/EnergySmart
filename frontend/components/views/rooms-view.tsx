@@ -9,7 +9,7 @@ import { CrudPage } from "@/components/views/crud-page"
 import { useCrudDialogs } from "@/hooks/use-crud-dialogs"
 import { useCanWrite } from "@/hooks/use-current-user"
 import { useListState } from "@/hooks/use-list-state"
-import { useFloorOptions } from "@/hooks/use-options"
+import { useBuildingOptions, useFloorOptions } from "@/hooks/use-options"
 import { useResourceList } from "@/hooks/use-resource"
 import { formatNumber } from "@/lib/format"
 import { roomsApi } from "@/lib/resources"
@@ -25,6 +25,7 @@ const COLUMNS: Column<Room>[] = [
   },
   { key: "name", header: "Tên phòng", sortKey: "name", cell: (r) => r.name },
   { key: "floor", header: "Tầng", cell: (r) => r.floor.name },
+  { key: "building", header: "Tòa nhà", cell: (r) => `${r.floor.building.code} · ${r.floor.building.name}` },
   {
     key: "area",
     header: "Diện tích",
@@ -37,8 +38,10 @@ const COLUMNS: Column<Room>[] = [
 
 export function RoomsView() {
   const canWrite = useCanWrite()
-  const floors = useFloorOptions()
+  const buildings = useBuildingOptions()
   const list = useListState({ sort_by: "code", sort_order: "asc" })
+  const buildingId = list.params.building_id as number | undefined
+  const floors = useFloorOptions(buildingId)
   const query = useResourceList(roomsApi, list.params)
   const dialogs = useCrudDialogs(roomsApi)
 
@@ -52,6 +55,15 @@ export function RoomsView() {
       toolbar={
         <>
           <SearchInput placeholder="Tìm theo tên, mã phòng..." onSearch={list.setSearch} />
+          <FilterSelect
+            label="Tòa nhà"
+            value={buildingId}
+            options={buildings}
+            onChange={(value) => {
+              list.setFilter("building_id", toNumber(value))
+              list.setFilter("floor_id", undefined)
+            }}
+          />
           <FilterSelect
             label="Tầng"
             value={list.params.floor_id as number | undefined}

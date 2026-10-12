@@ -128,7 +128,7 @@ function AnalyticsTable({
       <CardContent>
         <div className="max-h-80 overflow-auto rounded-md border">
           <Table>
-            <TableHeader className="sticky top-0 bg-muted/50">
+            <TableHeader className="sticky top-0">
               <TableRow>
                 {headers.map((header) => (
                   <TableHead key={header}>{header}</TableHead>

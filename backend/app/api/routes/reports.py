@@ -30,14 +30,21 @@ def consumption_report(params: ReportQuery, service: ServiceDep) -> ApiResponse[
 
 @router.get(
     "/consumption/export",
-    summary="Xuất báo cáo tiêu thụ ra file CSV",
+    summary="Xuất báo cáo tiêu thụ ra file Excel đã định dạng",
     response_class=Response,
-    responses={200: {"content": {"text/csv": {}}, "description": "File CSV (UTF-8 BOM)"}},
+    responses={
+        200: {
+            "content": {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            },
+            "description": "File Excel XLSX",
+        }
+    },
 )
 def export_consumption_report(params: ReportQuery, service: ServiceDep) -> Response:
-    filename, content = service.consumption_csv(params)
+    filename, content = service.consumption_excel(params)
     return Response(
-        content=content.encode("utf-8"),
-        media_type="text/csv; charset=utf-8",
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

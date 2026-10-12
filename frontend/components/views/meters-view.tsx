@@ -11,7 +11,7 @@ import { CrudPage } from "@/components/views/crud-page"
 import { useCrudDialogs } from "@/hooks/use-crud-dialogs"
 import { useCanWrite } from "@/hooks/use-current-user"
 import { useListState } from "@/hooks/use-list-state"
-import { useFloorOptions } from "@/hooks/use-options"
+import { useBuildingOptions, useFloorOptions } from "@/hooks/use-options"
 import { useResourceList } from "@/hooks/use-resource"
 import { formatDate } from "@/lib/format"
 import {
@@ -49,6 +49,7 @@ const COLUMNS: Column<Meter>[] = [
   },
   { key: "name", header: "Tên công tơ", sortKey: "name", cell: (m) => m.name },
   { key: "room", header: "Phòng", cell: (m) => `${m.room.code} · ${m.room.name}` },
+  { key: "building", header: "Tòa nhà", cell: (m) => `${m.room.floor.building.code} · ${m.room.floor.building.name}` },
   { key: "type", header: "Loại", className: "w-20", cell: (m) => METER_TYPE_LABELS[m.meter_type] },
   {
     key: "status",
@@ -68,8 +69,10 @@ const COLUMNS: Column<Meter>[] = [
 
 export function MetersView() {
   const canWrite = useCanWrite()
-  const floors = useFloorOptions()
+  const buildings = useBuildingOptions()
   const list = useListState({ sort_by: "meter_code", sort_order: "asc" })
+  const buildingId = list.params.building_id as number | undefined
+  const floors = useFloorOptions(buildingId)
   const query = useResourceList(metersApi, list.params)
   const dialogs = useCrudDialogs(metersApi)
 
@@ -83,6 +86,15 @@ export function MetersView() {
       toolbar={
         <>
           <SearchInput placeholder="Tìm theo mã, tên công tơ..." onSearch={list.setSearch} />
+          <FilterSelect
+            label="Tòa nhà"
+            value={buildingId}
+            options={buildings}
+            onChange={(value) => {
+              list.setFilter("building_id", toNumber(value))
+              list.setFilter("floor_id", undefined)
+            }}
+          />
           <FilterSelect
             label="Tầng"
             value={list.params.floor_id as number | undefined}

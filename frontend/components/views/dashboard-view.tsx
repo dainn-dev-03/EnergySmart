@@ -1,264 +1,102 @@
 "use client"
 
-import { useQuery } from "@tanstack/react-query"
-import { ArrowDownRight, ArrowUpRight, BellRing, CalendarDays, Gauge, Wallet, Zap } from "lucide-react"
+import { ArrowRight, MessageCircle, Zap } from "lucide-react"
+import Image from "next/image"
 import Link from "next/link"
 
-import { ChartCard } from "@/components/charts/chart-card"
-import {
-  COST_COLOR,
-  ColumnChart,
-  ENERGY_COLOR,
-  HorizontalBarChart,
-  millionsAxis,
-} from "@/components/charts/charts"
-import { SeverityBadge, TrendStatusIcon } from "@/components/dashboard/severity-badge"
-import { StatCard } from "@/components/dashboard/stat-card"
-import { PageHeader } from "@/components/layout/page-header"
+import { NAVIGATION } from "@/components/layout/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { apiGet, apiList } from "@/lib/api"
-import {
-  formatDate,
-  formatKwh,
-  formatNumber,
-  formatPercent,
-  formatVnd,
-  formatVndCompact,
-} from "@/lib/format"
-import type {
-  Alert,
-  Comparison,
-  DailyPoint,
-  DashboardSummary,
-  FloorTrend,
-  MonthlyPoint,
-} from "@/types/models"
-
-const kwhAxis = (value: number) => formatKwh(value)
-
-function shortDate(isoDate: string): string {
-  return formatDate(isoDate).slice(0, 5) // dd/MM
-}
-
-function monthLabel(month: string): string {
-  const [year, monthNumber] = month.split("-")
-  return `T${Number(monthNumber)}/${year.slice(2)}`
-}
-
-function DeltaLine({ comparison, suffix }: { comparison: Comparison | undefined; suffix: string }) {
-  if (!comparison || comparison.percentage_change === null) return null
-  const up = comparison.percentage_change > 0
-  const Icon = up ? ArrowUpRight : ArrowDownRight
-  return (
-    <span className="inline-flex items-center gap-1">
-      {/* For consumption, up is bad: the arrow carries direction, the text stays in ink. */}
-      <Icon className={up ? "text-status-critical size-3.5" : "text-status-good size-3.5"} aria-hidden />
-      {formatPercent(comparison.percentage_change)} {suffix}
-    </span>
-  )
-}
+import { useIsAdmin } from "@/hooks/use-current-user"
 
 export function DashboardView() {
-  const summary = useQuery({
-    queryKey: ["dashboard", "summary"],
-    queryFn: () => apiGet<DashboardSummary>("/dashboard/summary"),
-  })
-  const dayComparison = useQuery({
-    queryKey: ["analytics", "comparison", "day"],
-    queryFn: () => apiGet<Comparison>("/analytics/comparison", { period: "day" }),
-  })
-  const monthComparison = useQuery({
-    queryKey: ["analytics", "comparison", "month"],
-    queryFn: () => apiGet<Comparison>("/analytics/comparison", { period: "month" }),
-  })
-  const daily = useQuery({
-    queryKey: ["dashboard", "daily"],
-    queryFn: () => apiGet<DailyPoint[]>("/dashboard/daily", { days: 30 }),
-  })
-  const monthly = useQuery({
-    queryKey: ["dashboard", "monthly"],
-    queryFn: () => apiGet<MonthlyPoint[]>("/dashboard/monthly", { months: 6 }),
-  })
-  const floors = useQuery({
-    queryKey: ["dashboard", "by-floor"],
-    queryFn: () => apiGet<FloorTrend[]>("/dashboard/by-floor"),
-  })
-  const openAlerts = useQuery({
-    queryKey: ["/alerts", "list", { is_resolved: false, page_size: 5 }],
-    queryFn: () => apiList<Alert>("/alerts", { is_resolved: false, page_size: 5 }),
-  })
-
-  const data = summary.data
-  const dailyPoints = (daily.data ?? []).map((p) => ({ label: shortDate(p.date), value: p.kwh }))
-  const monthlyPoints = monthly.data ?? []
-  const floorTrends = floors.data ?? []
-  const warningFloors = floorTrends.filter((floor) => floor.status === "WARNING")
+  const isAdmin = useIsAdmin()
+  const sections = NAVIGATION.filter(
+    (group) => group.label !== "Tổng quan" && (group.label !== "Quản trị" || isAdmin),
+  )
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <PageHeader title="Tổng quan" description="Tình hình tiêu thụ điện của tòa nhà, cập nhật theo giờ" />
-
-      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard
-          label="Tiêu thụ hôm nay"
-          icon={Zap}
-          value={data && formatKwh(data.today_kwh)}
-          footer={<DeltaLine comparison={dayComparison.data} suffix="so với hôm qua cùng giờ" />}
+    <div className="space-y-8 pb-6">
+      <section className="relative isolate flex min-h-72 items-center overflow-hidden rounded-lg bg-[#143b32] px-6 py-8 text-white sm:px-10 lg:min-h-80 lg:px-14">
+        <Image
+          src="/bg-login.png"
+          alt="Tuabin gió giữa khung cảnh đồi núi lúc hoàng hôn"
+          fill
+          priority
+          sizes="(max-width: 768px) 100vw, 1200px"
+          className="-z-20 object-cover object-center"
         />
-        <StatCard
-          label="Tiêu thụ tháng này"
-          icon={CalendarDays}
-          value={data && formatKwh(data.month_kwh)}
-          footer={<DeltaLine comparison={monthComparison.data} suffix="so với cùng kỳ tháng trước" />}
-        />
-        <StatCard
-          label="Chi phí tháng này"
-          icon={Wallet}
-          value={data && formatVndCompact(data.month_cost)}
-          footer={data && formatVnd(data.month_cost)}
-        />
-        <StatCard
-          label="Công tơ hoạt động"
-          icon={Gauge}
-          value={data && formatNumber(data.active_meters)}
-          footer="Trạng thái ACTIVE"
-        />
-        <StatCard
-          label="Cảnh báo chưa xử lý"
-          icon={BellRing}
-          value={data && formatNumber(data.alert_count)}
-          footer={
-            <Link href="/alerts" className="hover:text-foreground underline-offset-4 hover:underline">
-              Xem danh sách cảnh báo
-            </Link>
-          }
-        />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard
-          title="Tiêu thụ theo ngày"
-          description="30 ngày gần nhất (kWh)"
-          isLoading={daily.isLoading}
-          table={{
-            headers: ["Ngày", "Điện năng", "Chi phí"],
-            rows: (daily.data ?? []).map((p) => [formatDate(p.date), formatKwh(p.kwh), formatVnd(p.cost)]),
-          }}
-        >
-          <ColumnChart data={dailyPoints} seriesLabel="Điện năng" color={ENERGY_COLOR} format={kwhAxis} />
-        </ChartCard>
-
-        <ChartCard
-          title="Tiêu thụ theo tầng"
-          description="7 ngày gần nhất (kWh)"
-          isLoading={floors.isLoading}
-          table={{
-            headers: ["Tầng", "7 ngày gần nhất", "7 ngày trước", "Thay đổi"],
-            rows: floorTrends.map((f) => [
-              f.floor_name,
-              formatKwh(f.kwh),
-              formatKwh(f.previous_kwh),
-              formatPercent(f.percentage_change),
-            ]),
-          }}
-        >
-          <HorizontalBarChart
-            data={floorTrends.map((f) => ({ label: `Tầng ${f.floor_number}`, value: f.kwh }))}
-            seriesLabel="Điện năng"
-            color={ENERGY_COLOR}
-            format={kwhAxis}
-          />
-        </ChartCard>
-
-        <ChartCard
-          title="Tiêu thụ theo tháng"
-          description="6 tháng gần nhất (kWh)"
-          isLoading={monthly.isLoading}
-          table={{
-            headers: ["Tháng", "Điện năng"],
-            rows: monthlyPoints.map((p) => [p.month, formatKwh(p.kwh)]),
-          }}
-        >
-          <ColumnChart
-            data={monthlyPoints.map((p) => ({ label: monthLabel(p.month), value: p.kwh }))}
-            seriesLabel="Điện năng"
-            color={ENERGY_COLOR}
-            format={kwhAxis}
-          />
-        </ChartCard>
-
-        <ChartCard
-          title="Chi phí theo tháng"
-          description="6 tháng gần nhất (VND)"
-          isLoading={monthly.isLoading}
-          table={{
-            headers: ["Tháng", "Chi phí"],
-            rows: monthlyPoints.map((p) => [p.month, formatVnd(p.cost)]),
-          }}
-        >
-          <ColumnChart
-            data={monthlyPoints.map((p) => ({ label: monthLabel(p.month), value: p.cost }))}
-            seriesLabel="Chi phí"
-            color={COST_COLOR}
-            format={formatVnd}
-            axisFormat={millionsAxis}
-          />
-        </ChartCard>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Cảnh báo</CardTitle>
-          <CardDescription>
-            {warningFloors.length > 0
-              ? `${warningFloors.length} tầng tăng tiêu thụ từ 20% trở lên so với 7 ngày trước`
-              : "Không có tầng nào tăng tiêu thụ bất thường"}
-          </CardDescription>
-          <CardAction>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/alerts">Xem tất cả</Link>
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(13,43,36,0.96)_0%,rgba(18,58,48,0.88)_48%,rgba(17,54,45,0.25)_100%)]" />
+        <div className="max-w-2xl space-y-5">
+          <div className="inline-flex items-center gap-2 border-l-2 border-emerald-300 pl-3 text-xs font-semibold uppercase text-emerald-100">
+            <Zap className="size-4" aria-hidden />
+            Nền tảng quản lý năng lượng
+          </div>
+          <div className="space-y-2">
+            <h1 className="font-heading text-4xl font-semibold sm:text-5xl">EnergySmart</h1>
+            <p className="max-w-xl text-sm leading-6 text-white/85 sm:text-base">
+              Quản lý tòa nhà, theo dõi dữ liệu điện và khám phá xu hướng tiêu thụ trong cùng một không gian làm việc.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild className="bg-white text-[#174b3b] hover:bg-emerald-50">
+              <Link href="/analytics">
+                Khám phá phân tích
+                <ArrowRight />
+              </Link>
             </Button>
-          </CardAction>
-        </CardHeader>
-        <CardContent className="grid gap-6 lg:grid-cols-2">
-          <ul className="space-y-2" aria-label="Tình trạng theo tầng">
-            {floors.isLoading
-              ? Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-6" />)
-              : [...floorTrends]
-                  .sort((a, b) => (b.percentage_change ?? 0) - (a.percentage_change ?? 0))
-                  .slice(0, 5)
-                  .map((floor) => (
-                    <li key={floor.floor_id} className="flex items-center gap-2 text-sm">
-                      <TrendStatusIcon warning={floor.status === "WARNING"} />
-                      <span>
-                        {floor.status === "WARNING"
-                          ? `Tầng ${floor.floor_number} tăng ${formatPercent(floor.percentage_change)} tiêu thụ so với 7 ngày trước`
-                          : `Tầng ${floor.floor_number} bình thường (${formatPercent(floor.percentage_change)})`}
+            <Button
+              asChild
+              variant="outline"
+              className="border-white/70 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+            >
+              <Link href="/chat">
+                <MessageCircle />
+                Trợ lý AI
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="workspace-links-heading" className="space-y-5">
+        <div className="flex flex-col gap-1 border-b pb-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-primary">Không gian làm việc</p>
+            <h2 id="workspace-links-heading" className="mt-1 text-xl font-semibold">
+              Bắt đầu từ một khu vực
+            </h2>
+          </div>
+          <p className="text-muted-foreground text-sm">Chọn chức năng để tiếp tục</p>
+        </div>
+
+        <div className="space-y-8">
+          {sections.map((group) => (
+            <section key={group.label} aria-label={group.label} className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground">{group.label}</h3>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {group.items.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="group flex min-h-28 items-start gap-4 rounded-md border bg-card p-4 transition-colors hover:border-primary/50 hover:bg-primary/2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <item.icon className="size-5" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="font-medium">{item.title}</span>
+                        <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden />
                       </span>
-                    </li>
-                  ))}
-          </ul>
-          <ul className="space-y-3" aria-label="Cảnh báo mới nhất">
-            {openAlerts.isLoading ? (
-              Array.from({ length: 3 }, (_, index) => <Skeleton key={index} className="h-10" />)
-            ) : (openAlerts.data?.data.length ?? 0) === 0 ? (
-              <li className="text-muted-foreground text-sm">Không có cảnh báo chưa xử lý</li>
-            ) : (
-              openAlerts.data?.data.map((alert) => (
-                <li key={alert.id} className="space-y-1 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <SeverityBadge severity={alert.severity} />
-                    <span className="text-muted-foreground text-xs">{formatDate(alert.usage_date)}</span>
-                  </div>
-                  <p className="text-muted-foreground">{alert.message}</p>
-                </li>
-              ))
-            )}
-          </ul>
-        </CardContent>
-      </Card>
+                      <span className="mt-1 block text-sm leading-5 text-muted-foreground">{item.description}</span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </section>
     </div>
   )
 }

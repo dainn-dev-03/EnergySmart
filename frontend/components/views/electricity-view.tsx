@@ -6,6 +6,7 @@ import { ConfirmDeleteDialog } from "@/components/data-table/confirm-delete-dial
 import { CrudList, Muted, withRowActions } from "@/components/data-table/crud-list"
 import type { Column } from "@/components/data-table/data-table"
 import { DateRangeFilter } from "@/components/data-table/date-range-filter"
+import { FilterBar } from "@/components/data-table/filter-bar"
 import { FilterSelect, toNumber } from "@/components/data-table/filter-select"
 import { PriceFormDialog, UsageFormDialog } from "@/components/forms/entity-forms"
 import { PageHeader } from "@/components/layout/page-header"
@@ -14,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useCrudDialogs } from "@/hooks/use-crud-dialogs"
 import { useCanWrite, useIsAdmin } from "@/hooks/use-current-user"
 import { useListState } from "@/hooks/use-list-state"
-import { useFloorOptions, useMeterOptions } from "@/hooks/use-options"
+import { useBuildingOptions, useFloorOptions, useMeterOptions } from "@/hooks/use-options"
 import { useResourceList } from "@/hooks/use-resource"
 import { formatDate, formatDateTime, formatKwh, formatNumber, formatVnd } from "@/lib/format"
 import { pricesApi, usagesApi } from "@/lib/resources"
@@ -39,6 +40,11 @@ const USAGE_COLUMNS: Column<ElectricityUsage>[] = [
         </p>
       </div>
     ),
+  },
+  {
+    key: "building",
+    header: "Tòa nhà",
+    cell: (u) => `${u.meter.room.floor.building.code} · ${u.meter.room.floor.building.name}`,
   },
   {
     key: "kwh",
@@ -99,15 +105,27 @@ const PRICE_COLUMNS: Column<ElectricityPrice>[] = [
 function UsagesTab() {
   const canWrite = useCanWrite()
   const list = useListState({ sort_by: "recorded_at", sort_order: "desc" })
+  const buildingId = list.params.building_id as number | undefined
   const floorId = list.params.floor_id as number | undefined
-  const floors = useFloorOptions()
+  const buildings = useBuildingOptions()
+  const floors = useFloorOptions(buildingId)
   const meters = useMeterOptions(floorId)
   const query = useResourceList(usagesApi, list.params)
   const dialogs = useCrudDialogs(usagesApi)
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <FilterBar>
+        <FilterSelect
+          label="Tòa nhà"
+          value={buildingId}
+          options={buildings}
+          onChange={(value) => {
+            list.setFilter("building_id", toNumber(value))
+            list.setFilter("floor_id", undefined)
+            list.setFilter("meter_id", undefined)
+          }}
+        />
         <FilterSelect
           label="Tầng"
           value={floorId}
@@ -138,7 +156,7 @@ function UsagesTab() {
             Ghi nhận dữ liệu
           </Button>
         ) : null}
-      </div>
+      </FilterBar>
       <CrudList
         query={query}
         list={list}

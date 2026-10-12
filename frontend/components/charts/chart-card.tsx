@@ -57,7 +57,7 @@ export function ChartCard({ title, description, isLoading, table, children, clas
         ) : showTable ? (
           <div className="max-h-72 overflow-auto rounded-md border">
             <Table>
-              <TableHeader className="bg-muted/50 sticky top-0">
+              <TableHeader className="sticky top-0">
                 <TableRow>
                   {table.headers.map((header) => (
                     <TableHead key={header}>{header}</TableHead>

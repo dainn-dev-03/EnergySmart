@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { CrudList, Muted } from "@/components/data-table/crud-list"
 import type { Column } from "@/components/data-table/data-table"
 import { DateRangeFilter } from "@/components/data-table/date-range-filter"
+import { FilterBar } from "@/components/data-table/filter-bar"
 import { FilterSelect, toNumber } from "@/components/data-table/filter-select"
 import { SeverityBadge, SEVERITY } from "@/components/dashboard/severity-badge"
 import type { Option } from "@/components/forms/form-fields"
@@ -147,7 +148,7 @@ export function AlertsView() {
           ) : null
         }
       />
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <FilterBar>
         <FilterSelect
           label="Trạng thái"
           value={list.params.is_resolved === undefined ? undefined : String(list.params.is_resolved)}
@@ -174,7 +175,7 @@ export function AlertsView() {
             list.setFilter("to_date", to)
           }}
         />
-      </div>
+      </FilterBar>
       <CrudList query={query} list={list} columns={columns} emptyMessage="Không có cảnh báo phù hợp" />
     </div>
   )

@@ -4,6 +4,7 @@ import { Plus } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { ConfirmDeleteDialog } from "@/components/data-table/confirm-delete-dialog"
+import { FilterBar } from "@/components/data-table/filter-bar"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 
@@ -52,7 +53,7 @@ export function CrudPage({
           ) : null
         }
       />
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">{toolbar}</div>
+      <FilterBar>{toolbar}</FilterBar>
       {children}
       {dialogs}
       <ConfirmDeleteDialog

@@ -8,12 +8,13 @@ import { ChartCard } from "@/components/charts/chart-card"
 import { ColumnChart, ENERGY_COLOR, HorizontalBarChart, MultiLineChart } from "@/components/charts/charts"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { DateRangeFilter } from "@/components/data-table/date-range-filter"
+import { FilterBar } from "@/components/data-table/filter-bar"
 import { FilterSelect, toNumber } from "@/components/data-table/filter-select"
 import { PageHeader } from "@/components/layout/page-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { useFloorOptions } from "@/hooks/use-options"
+import { useBuildingOptions, useFloorOptions } from "@/hooks/use-options"
 import { apiGet } from "@/lib/api"
 import { shiftDays, todayInVietnam } from "@/lib/dates"
 import { formatDate, formatKwh, formatNumber, formatPercent, formatVnd } from "@/lib/format"
@@ -38,10 +39,21 @@ const HOURLY_SERIES = [
   { key: "weekend", label: "Cuối tuần", color: "var(--chart-3)" },
 ]
 
-function ComparisonTile({ period, label, versus, icon, floorId }: (typeof PERIODS)[number] & { floorId?: number }) {
+function ComparisonTile({
+  period,
+  label,
+  versus,
+  icon,
+  buildingId,
+  floorId,
+}: (typeof PERIODS)[number] & { buildingId?: number; floorId?: number }) {
   const { data } = useQuery({
-    queryKey: ["analytics", "comparison", period, floorId],
-    queryFn: () => apiGet<Comparison>("/analytics/comparison", { period, floor_id: floorId }),
+    queryKey: ["analytics", "comparison", period, buildingId, floorId],
+    queryFn: () => apiGet<Comparison>("/analytics/comparison", {
+      period,
+      building_id: buildingId,
+      floor_id: floorId,
+    }),
   })
   const change = data?.percentage_change ?? null
   const Arrow = change !== null && change > 0 ? ArrowUpRight : ArrowDownRight
@@ -70,9 +82,11 @@ export function AnalyticsView() {
     from: shiftDays(today, -29),
     to: today,
   })
+  const [buildingId, setBuildingId] = useState<number | undefined>()
   const [floorId, setFloorId] = useState<number | undefined>()
-  const floors = useFloorOptions()
-  const params = { from_date: range.from, to_date: range.to, floor_id: floorId }
+  const buildings = useBuildingOptions()
+  const floors = useFloorOptions(buildingId)
+  const params = { from_date: range.from, to_date: range.to, building_id: buildingId, floor_id: floorId }
 
   const daily = useQuery({
     queryKey: ["analytics", "daily", params],
@@ -101,14 +115,23 @@ export function AnalyticsView() {
     <div className="space-y-6">
       <PageHeader title="Phân tích" description="Xu hướng tiêu thụ, giờ cao điểm và so sánh giữa các kỳ" />
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <FilterBar>
         <DateRangeFilter from={range.from} to={range.to} onChange={setRange} />
+        <FilterSelect
+          label="Tòa nhà"
+          value={buildingId}
+          options={buildings}
+          onChange={(v) => {
+            setBuildingId(toNumber(v))
+            setFloorId(undefined)
+          }}
+        />
         <FilterSelect label="Tầng" value={floorId} options={floors} onChange={(v) => setFloorId(toNumber(v))} />
-      </div>
+      </FilterBar>
 
       <div className="grid gap-4 md:grid-cols-3">
         {PERIODS.map((item) => (
-          <ComparisonTile key={item.period} {...item} floorId={floorId} />
+          <ComparisonTile key={item.period} {...item} buildingId={buildingId} floorId={floorId} />
         ))}
       </div>
 
